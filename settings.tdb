@@ -1,0 +1,12 @@
+client_name {de1plus}
+host {mqtt.example.com}
+topic_prefix {de1plus}
+user {your_user}
+password {your_password}
+port 8883
+keepalive 60
+retransmit 5000
+ca_file {plugins/mqtt/ca.crt}
+client_cert {plugins/mqtt/de1.crt}
+client_key {plugins/mqtt/de1.key}
+ignore_invalid_certificate 0
