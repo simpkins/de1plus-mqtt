@@ -4,6 +4,7 @@ user {your_user}
 password {your_password}
 client_name {de1plus}
 topic_prefix {de1plus/main}
+publish_interval 60
 keepalive 60
 retransmit 5000
 ca_file {}

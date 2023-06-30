@@ -29,25 +29,26 @@ namespace eval ::plugins::${plugin_name} {
         # The actual content. Here a list of all settings for this plugin
         set content_textfield [add_de1_text $page_name 600 380 -text  "" -font global_font -width 600 -fill "#444444" -anchor "nw" -justify "left" ]
         set description ""
-        set description "$description\nBroker: $settings(host):$settings(port)"
-        set description "$description\nClient Name: $settings(client_name)"
-        set description "$description\nUser Name: $settings(user)"
-        set description "$description\nTopic Prefix: $settings(topic_prefix)"
+        append description "\nBroker: $settings(host):$settings(port)"
+        append description "\nClient Name: $settings(client_name)"
+        append description "\nUser Name: $settings(user)"
+        append description "\nTopic Prefix: $settings(topic_prefix)"
         if { $settings(ca_file) ne "" } {
-            set description "$description\nTLS: Enabled"
+            append description "\nTLS: Enabled"
             if { $settings(verify_server_certificate) == 0 } {
-                set description "$description\nVerify Server Certificate: No"
+                append description "\nVerify Server Certificate: No"
             } else {
-                set description "$description\nVerify Server Certificate: Yes"
+                append description "\nVerify Server Certificate: Yes"
             }
             if { $settings(client_cert) ne "" && $settings(client_key) ne "" } {
-                set description "$description\nClient Certificate: Set"
+                append description "\nClient Certificate: Set"
             } else {
-                set description "$description\nClient Certificate: Not in use"
+                append description "\nClient Certificate: Not in use"
             }
         } else {
-            set description "$description\nTLS: Disabled"
+            append description "\nTLS: Disabled"
         }
+        append description "\nPublish Interval: $settings(publish_interval)s"
         .can itemconfigure $content_textfield -text $description
 
         add_de1_variable $page_name 1450 720 -font Helv_8 -width 400 -fill "#4e85f4" -anchor "nw" -justify "left" -textvariable {$::plugins::mqtt::current_status}
@@ -76,7 +77,7 @@ namespace eval ::plugins::${plugin_name} {
             # doesn't work, since the mqtt library hasn't stored the fd yet,
             # and it just drops the publish message.  Therefore use an after
             # call to schedule this publish.
-            after 1 ::::plugins::mqtt::publish_state
+            after 1 ::::plugins::mqtt::force_immediate_publish
             set current_status "Connected"
         } else {
             # The mqtt2.0 package in the version of Androwish currently
@@ -214,7 +215,18 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_state_change {event_dict} {
+        force_immediate_publish
+    }
+
+    proc force_immediate_publish {} {
+        variable settings
+        variable publish_timer_id
+
+        after cancel $publish_timer_id
         ::plugins::mqtt::publish_state
+        set publish_timer_id \
+            [after [expr 1000 * $settings(publish_interval)] \
+            ::plugins::mqtt::force_immediate_publish]
     }
 
     proc create_socket {args} {
@@ -264,7 +276,9 @@ namespace eval ::plugins::${plugin_name} {
         package require tls
         variable settings
         variable mqtt_client
+        variable publish_timer_id
 
+        set publish_timer_id {}
         set dead_state {{"online": false, "de1_connected": false}}
 
         msg "Enabling MQTT plugin"
