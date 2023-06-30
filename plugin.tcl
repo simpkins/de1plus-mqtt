@@ -55,12 +55,23 @@ namespace eval ::plugins::${plugin_name} {
         return $page_name
     }
 
+    # Helper function that prefixes our plugin name to all messages
+    # we log in this namespace.
+    proc msg {args} {
+        set first_arg [lindex $args 0]
+        if { [string index $first_arg 0] == {-} } {
+            ::msg $first_arg [namespace current] [lrange $args 1 end]
+        } else {
+            ::msg [namespace current] {*}$args
+        }
+    }
+
     proc on_conn_event {topic data retain} {
         variable mqtt_client
         variable current_status
         # Republish our status each time we reconnect
         if {[dict get $data state] eq "connected"} {
-            msg [namespace current] "mqtt connected"
+            msg "connected"
             # Publishing directly inside a CONNACK event callback unfortunately
             # doesn't work, since the mqtt library hasn't stored the fd yet,
             # and it just drops the publish message.  Therefore use an after
@@ -72,7 +83,7 @@ namespace eval ::plugins::${plugin_name} {
             # shipping with DE1 unfortunately does not seem to send connection
             # status updates for most errors, so this unfortunately does not
             # let us record the error reason properly in most cases.
-            msg [namespace current] "mqtt connection status: $data"
+            msg "connection status: $data"
 
             switch -- [dict get $data reason] {
               0 {set reason_str "Connection Accepted"}
@@ -84,7 +95,7 @@ namespace eval ::plugins::${plugin_name} {
               default {set reason_str "MQTT code $data(reason)"}
             }
             set current_status "[dict get $data state]: $reason_str"
-            msg [namespace current] "mqtt connection status: $current_status"
+            msg "connection status: $current_status"
         }
     }
 
@@ -94,35 +105,33 @@ namespace eval ::plugins::${plugin_name} {
                 set current_state $::de1_num_state($::de1(state))
                 if {$current_state == "Sleep" || \
                     $current_state == "GoingToSleep"} {
-                    msg [namespace current] "MQTT wake: waking up"
+                    msg "wake: waking up"
                     start_idle
                     borg alarm wakeup 1 0 ::plugins::mqtt::on_wake
                 } else {
-                    msg [namespace current] "MQTT wake: already awake"
+                    msg "wake: already awake"
                 }
             }
             "sleep" {
                 set current_state $::de1_num_state($::de1(state))
                 if {$current_state == "Idle"} {
-                    msg [namespace current] "MQTT sleep: going to sleep"
+                    msg "sleep: going to sleep"
                     start_sleep
                 } elseif {$current_state == "Sleep" || \
                     $current_state == "GoingToSleep"} {
-                    msg [namespace current] "MQTT sleep: already sleeping"
+                    msg "sleep: already sleeping"
                 } else {
-                    msg [namespace current] \
-                        "MQTT sleep: machine in use ($current_state);" \
-                        "not sleeping"
+                    msg "sleep: machine in use ($current_state); not sleeping"
                 }
             }
             default {
-                msg [namespace current] "unknown MQTT command: $data"
+                msg "unknown MQTT command: $data"
             }
         }
     }
 
     proc on_wake {args} {
-        msg [namespace current] "on wake"
+        msg "on wake"
     }
 
     proc json_quote_str {value} {
@@ -215,17 +224,16 @@ namespace eval ::plugins::${plugin_name} {
 
         switch -- $option {
             "error" {
-                lassign $args channel msg
-                msg -ERROR "MQTT TLS error: $msg"
-                set current_status "TLS error: $msg"
+                lassign $args channel error_msg
+                msg -ERROR "TLS error: $error_msg"
+                set current_status "TLS error: $error_msg"
             }
             "verify" {
                 # TLS certificate verification is unfortunately disabled by
                 # default.  Specifying this command callback enables it.
                 lassign $args channel depth cert status err
                 if { $settings(verify_server_certificate) == 0 } {
-                    msg [namespace current]
-                        "proceeding with invalid TLS server certificate"
+                    msg "proceeding with invalid TLS server certificate"
                     return 1
                 }
                 return $status
@@ -247,19 +255,24 @@ namespace eval ::plugins::${plugin_name} {
 
         set dead_state {{"online": false}}
 
-        msg [namespace current] "Enabling MQTT plugin"
+        msg "Enabling MQTT plugin"
         mqtt create mqtt_client \
             -username $settings(user) -password $settings(password) \
             -keepalive $settings(keepalive) -retransmit $settings(retransmit) \
            -socketcmd ::plugins::mqtt::create_socket
         mqtt_client will "$settings(topic_prefix)/state" $dead_state 1 1
-        msg [namespace current] "Connecting to MQTT broker $settings(host):$settings(port) as $settings(client_name)"
-        mqtt_client connect $settings(client_name) $settings(host) $settings(port)
+        msg "Connecting to MQTT broker $settings(host):$settings(port) " \
+            "as $settings(client_name)"
+        mqtt_client connect $settings(client_name) \
+            $settings(host) $settings(port)
 
-        mqtt_client subscribe {$SYS/local/connection} ::plugins::mqtt::on_conn_event
-        mqtt_client subscribe "$settings(topic_prefix)/command" ::plugins::mqtt::on_command
+        mqtt_client subscribe {$SYS/local/connection} \
+            ::plugins::mqtt::on_conn_event
+        mqtt_client subscribe "$settings(topic_prefix)/command" \
+            ::plugins::mqtt::on_command
 
-	::de1::event::listener::on_all_state_change_add ::plugins::mqtt::on_state_change
+	::de1::event::listener::on_all_state_change_add \
+            ::plugins::mqtt::on_state_change
 
         # register settings gui
         plugins gui mqtt [build_ui]
