@@ -107,7 +107,14 @@ namespace eval ::plugins::${plugin_name} {
                     $current_state == "GoingToSleep"} {
                     msg "wake: waking up"
                     start_idle
-                    borg alarm wakeup 1 0 ::plugins::mqtt::on_wake
+
+                    # It would be nice if we could also turn on the tablet
+                    # display if it was off.  This alarm wakeup call is an
+                    # attempt to do that, but it doesn't seem to work and I
+                    # haven't spent much time investigating how to wake the
+                    # display from within Androwish.
+                    borg alarm wakeup 1 0 "action.wakeup" \
+                        {} {} {} "self"
                 } else {
                     msg "wake: already awake"
                 }
@@ -130,6 +137,10 @@ namespace eval ::plugins::${plugin_name} {
         }
     }
 
+    proc on_intent {args} {
+        msg "on intent"
+    }
+
     proc on_wake {args} {
         msg "on wake"
     }
@@ -149,16 +160,13 @@ namespace eval ::plugins::${plugin_name} {
         foreach {key value_info} [lsort -stride 2 $data] {
             lassign $value_info type value
             append json "$sep[json_quote_str $key]: "
-            if { $type eq "str" } {
-                append json "[json_quote_str $value]"
-            } elseif { $type eq "bool" || $type eq "num" } {
-                append json "$value"
-            } elseif { $type eq "null" } {
-                append json "null"
-            } elseif { $type eq "dict" } {
-                append json [dict2json $value]
-            } else {
-                error "Unknown JSON type \"$value\""
+            switch -- $type {
+                "str" { append json [json_quote_str $value] }
+                "bool" { append json [expr $value ? "true" : "false"] }
+                "num" { append json $value }
+                "null" { append json "null" }
+                "dict" { append json [dict2json $value] }
+                default { error "Unknown JSON type \"$value\"" }
             }
             set sep ", "
         }
@@ -169,32 +177,36 @@ namespace eval ::plugins::${plugin_name} {
         variable settings
         variable mqtt_client
 
-        # Androwish ships with a json package that provides a dict2json
-        # function, but it doesn't handle empty strings.  In general
-        # translating from tcl to json generically is hard without some
-        # external knowledge of the data types.  Therefore just manually build
-        # our json state.
-
         set state ""
         dict set state online {bool true}
-        dict set state state [list str $::de1_num_state($::de1(state))]
-        dict set state substate \
-            [list str $::de1_substate_types($::de1(substate))]
-        dict set state profile [list str $::settings(profile_title)]
-        dict set state espresso_count [list num $::settings(espresso_count)]
-        dict set state steaming_count [list num $::settings(steaming_count)]
-        dict set state head_temperature [list num $::de1(head_temperature)]
-        dict set state mix_temperature [list num $::de1(mix_temperature)]
-        dict set state steam_heater_temperature \
-            [list num $::de1(steam_heater_temperature)]
-        dict set state water_level_mm [list num $::de1(water_level)]
-        dict set state water_level_ml \
-            [list num [water_tank_level_to_milliliters $::de1(water_level)]]
 
-        # TODO: report last ping state
-	# dict set state connected [expr {$::de1(device_handle) != 0}]
-	# dict set state last_ping [expr {[clock seconds] - $::de1(last_ping)}]
-	# dict set state scale_connected [expr {$::de1(scale_device_handle) != 0}]
+	if {$::de1(device_handle) == 0} {
+            # The tablet cannot connect to the DE1
+            dict set state de1_connected {bool false}
+        } else {
+            dict set state de1_connected {bool true}
+            dict set state scale_connected \
+                [list bool [expr {$::de1(scale_device_handle) != 0}]]
+            dict set state state [list str $::de1_num_state($::de1(state))]
+            dict set state substate \
+                [list str $::de1_substate_types($::de1(substate))]
+            dict set state profile [list str $::settings(profile_title)]
+            dict set state espresso_count [list num $::settings(espresso_count)]
+            dict set state steaming_count [list num $::settings(steaming_count)]
+            dict set state head_temperature [list num $::de1(head_temperature)]
+            dict set state mix_temperature [list num $::de1(mix_temperature)]
+            dict set state steam_heater_temperature \
+                [list num $::de1(steam_heater_temperature)]
+            dict set state water_level_mm [list num $::de1(water_level)]
+            dict set state water_level_ml \
+                [list num [water_tank_level_to_milliliters $::de1(water_level)]]
+
+            # The wake_state reports if the DE1 is currently asleep or awake.
+            # Providing this as a boolean makes it easier to integrate as a
+            # switch in home assistant.
+            dict set state wake_state \
+                [list bool [expr {$::de1_num_state($::de1(state)) ne "Sleep"}]]
+        }
 
         set json_state [::plugins::mqtt::dict2json $state]
 
@@ -253,9 +265,10 @@ namespace eval ::plugins::${plugin_name} {
         variable settings
         variable mqtt_client
 
-        set dead_state {{"online": false}}
+        set dead_state {{"online": false, "de1_connected": false}}
 
         msg "Enabling MQTT plugin"
+        borg onintent ::plugins::mqtt::on_intent
         mqtt create mqtt_client \
             -username $settings(user) -password $settings(password) \
             -keepalive $settings(keepalive) -retransmit $settings(retransmit) \
