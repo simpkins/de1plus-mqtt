@@ -1,5 +1,5 @@
-host {mqtt.example.com}
-port 1883
+host {}
+port 8883
 user {your_user}
 password {your_password}
 client_name {de1plus}
@@ -7,7 +7,7 @@ topic_prefix {de1plus/main}
 publish_interval 60
 keepalive 60
 retransmit 5000
+enable_tls 1
 ca_file {}
 client_cert {}
 client_key {}
-verify_server_certificate 1

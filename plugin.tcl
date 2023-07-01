@@ -131,6 +131,36 @@ namespace eval ::plugins::${plugin_name} {
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Use TLS"
+        add_de1_widget $page_name checkbutton $col1_label_x $col1_y \
+            {} \
+            -variable ::plugins::mqtt::settings(enable_tls) \
+            -foreground #4e85f4 \
+            -bg #ffffff -activebackground #ffffff \
+            -relief flat -borderwidth 0 \
+            -highlightthickness 0 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "TLS CA File"
+        add_de1_variable $page_name $col1_label_x $col1_y \
+            -font Helv_8 -width 400 \
+            -anchor "nw" -justify "left" \
+            -textvariable {[::plugins::mqtt::settings_ca_file_status]}
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Client Cert"
+        add_de1_variable $page_name $col1_label_x $col1_y \
+            -font Helv_8 -width 400 \
+            -anchor "nw" -justify "left" \
+            -textvariable {[::plugins::mqtt::settings_client_cert_status]}
+        set col1_y [expr $col1_y + $y_spacing]
+
         #
         # Right Column: Status
         #
@@ -145,6 +175,27 @@ namespace eval ::plugins::${plugin_name} {
             -textvariable {$::plugins::mqtt::current_status}
 
         return $page_name
+    }
+
+    proc settings_ca_file_status {} {
+        variable settings
+
+        if { $settings(ca_file) ne "" } {
+            return $settings(ca_file)
+        }
+        if { $settings(enable_tls) } {
+            return "Not set. Certificate validation disabled."
+        }
+        return "Not set"
+    }
+
+    proc settings_client_cert_status {} {
+        variable settings
+
+        if { $settings(client_cert) eq "" } {
+            return "Not set"
+        }
+        return $settings(client_cert)
     }
 
     # Helper function that prefixes our plugin name to all messages
@@ -327,7 +378,7 @@ namespace eval ::plugins::${plugin_name} {
     proc create_socket {args} {
         variable settings
         set channel [socket {*}$args]
-        if { $settings(ca_file) ne "" } {
+        if { $settings(enable_tls) } {
             tls::import $channel \
                 -cafile $settings(ca_file) \
                 -certfile $settings(client_cert) \
@@ -337,6 +388,8 @@ namespace eval ::plugins::${plugin_name} {
         return $channel
     }
 
+    # We have to define our own custom TLS callback if we want to perform
+    # server certificate validation.
     proc tls_callback {option args} {
         variable current_status
         variable settings
@@ -348,11 +401,10 @@ namespace eval ::plugins::${plugin_name} {
                 set current_status "TLS error: $error_msg"
             }
             "verify" {
-                # TLS certificate verification is unfortunately disabled by
-                # default.  Specifying this command callback enables it.
                 lassign $args channel depth cert status err
-                if { $settings(verify_server_certificate) == 0 } {
-                    msg "proceeding with invalid TLS server certificate"
+                if { $settings(ca_file) == "" } {
+                    msg "No CA file defined.  " \
+                        "Skipping TLS server certificate verification"
                     return 1
                 }
                 return $status
