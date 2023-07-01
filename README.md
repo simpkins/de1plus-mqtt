@@ -1,26 +1,17 @@
 # MQTT plugin for the Decent Espresso DE1+
 
-# Topics
+This plugin adds MQTT support to DE1+ machines.  It supports publishing status
+information to MQTT, as well as receiving commands to wake the device or put it
+to sleep.
 
-* `{topic_prefix}/state`
+See [docs/topics.md](docs/topics.md) for a description of the topics.
 
-  Changes to the machine state are published to this topic.
+## Settings
 
-* `{topic_prefix}/command`
+Most settings are configurable through the settings UI in the app.
 
-  The plugin takes action based on messages sent to the `command` topic:
+A few settings can only be configured by manually uploading files or editing
+the `settings.tdb` file by plugging the tablet into a computer.
 
-  * `wake`: Wakes the machine from sleep.
-  * `sleep`: Puts the machine to sleep, if it is not actively pouring.
-
-# TLS Settings
-
-TLS encryption will be used if the `ca_file` setting is non-empty.
-If the `client_cert` and `client_key` settings are non-empty, they specify the
-path to the client certificate to use for authentication.
-
-```
-ca_file {plugins/mqtt/ca.crt}
-client_cert {plugins/mqtt/de1.crt}
-client_key {plugins/mqtt/de1.key}
-```
+See [docs/settings.md](docs/settings.md) for more detailed documentation of the
+settings.
