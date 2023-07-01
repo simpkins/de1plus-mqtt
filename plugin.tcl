@@ -111,12 +111,12 @@ namespace eval ::plugins::${plugin_name} {
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
             -width $label_width -anchor "nw" -justify "right" \
-            -text "Client Name"
+            -text "Client ID"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
             -font Helv_8 -width 30 \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
-            -textvariable ::plugins::mqtt::settings(client_name) \
+            -textvariable ::plugins::mqtt::settings(client_id) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
@@ -230,7 +230,7 @@ namespace eval ::plugins::${plugin_name} {
             switch -- [dict get $data reason] {
               0 {set reason_str "Connection Accepted"}
               1 {set reason_str "Unaccepted MQTT Protocol Version"}
-              2 {set reason_str "Client Name Rejected"}
+              2 {set reason_str "Client ID Rejected"}
               3 {set reason_str "Server Unavailable"}
               4 {set reason_str "Bad Username or Password"}
               5 {set reason_str "Client Not Authorized"}
@@ -475,8 +475,8 @@ namespace eval ::plugins::${plugin_name} {
         set client_started 1
         mqtt_client will "$settings(topic_prefix)/state" $dead_state 1 1
         msg "Connecting to MQTT broker $settings(host):$settings(port) " \
-            "as $settings(client_name)"
-        mqtt_client connect $settings(client_name) \
+            "as $settings(client_id)"
+        mqtt_client connect $settings(client_id) \
             $settings(host) $settings(port)
 
         mqtt_client subscribe {$SYS/local/connection} \
