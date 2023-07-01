@@ -20,38 +20,114 @@ namespace eval ::plugins::${plugin_name} {
 
         # Background image and "Done" button
         add_de1_page "$page_name" "settings_message.png" "default"
-        add_de1_text $page_name 1280 1310 -text [translate "Done"] -font Helv_10_bold -fill "#fAfBff" -anchor "center"
-        add_de1_button $page_name {say [translate {Done}] $::settings(sound_button_in); page_to_show_when_off extensions}  980 1210 1580 1410 ""
+        add_de1_text $page_name 1280 1310 -text [translate "Done"] \
+            -font Helv_10_bold -fill "#fAfBff" -anchor "center"
+        # TODO: save and apply settings when done is clicked
+        add_de1_button $page_name \
+            { \
+                say [translate {Done}] $::settings(sound_button_in); \
+                page_to_show_when_off extensions \
+            } \
+            980 1210 1580 1410 ""
 
         # Headline
-        add_de1_text $page_name 1280 300 -text [translate "MQTT Plugin"] -font Helv_20_bold -width 1200 -fill "#444444" -anchor "center" -justify "center"
+        add_de1_text $page_name 1280 300 \
+            -text [translate "MQTT Settings"] -font Helv_20_bold \
+            -width 1200 -fill "#444444" -anchor "center" -justify "center"
 
-        # The actual content. Here a list of all settings for this plugin
-        set content_textfield [add_de1_text $page_name 600 380 -text  "" -font global_font -width 600 -fill "#444444" -anchor "nw" -justify "left" ]
-        set description ""
-        append description "\nBroker: $settings(host):$settings(port)"
-        append description "\nClient Name: $settings(client_name)"
-        append description "\nUser Name: $settings(user)"
-        append description "\nTopic Prefix: $settings(topic_prefix)"
-        if { $settings(ca_file) ne "" } {
-            append description "\nTLS: Enabled"
-            if { $settings(verify_server_certificate) == 0 } {
-                append description "\nVerify Server Certificate: No"
-            } else {
-                append description "\nVerify Server Certificate: Yes"
-            }
-            if { $settings(client_cert) ne "" && $settings(client_key) ne "" } {
-                append description "\nClient Certificate: Set"
-            } else {
-                append description "\nClient Certificate: Not in use"
-            }
-        } else {
-            append description "\nTLS: Disabled"
-        }
-        append description "\nPublish Interval: $settings(publish_interval)s"
-        .can itemconfigure $content_textfield -text $description
+        set col1_x 315
+        set col1_label_x 650
+        set label_width 400
+        set col2_x 1450
 
-        add_de1_variable $page_name 1450 720 -font Helv_8 -width 400 -fill "#4e85f4" -anchor "nw" -justify "left" -textvariable {$::plugins::mqtt::current_status}
+        set y_start 450
+        set y_spacing 80
+
+        set col1_y $y_start
+        set col2_y $y_start
+
+        #
+        # Left Column: Settings
+        #
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Broker Host"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(host) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Broker Port"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 10 \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(port) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Username"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(user) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Password"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(password) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Client Name"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(client_name) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Topic Prefix"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(topic_prefix) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        #
+        # Right Column: Status
+        #
+
+        add_de1_text $page_name $col2_x $col2_y -font Helv_10_bold \
+            -width $label_width -anchor "nw" -justify "right" \
+            -text "Status:"
+        set col2_y [expr $col2_y + $y_spacing]
+        add_de1_variable $page_name $col2_x $col2_y \
+            -font Helv_8 -width 400 \
+            -anchor "nw" -justify "left" \
+            -textvariable {$::plugins::mqtt::current_status}
 
         return $page_name
     }
