@@ -11,24 +11,39 @@ namespace eval ::plugins::${plugin_name} {
     variable description "Report events and allow control via MQTT."
     variable name "MQTT Integration"
     variable current_status "Not connected"
+    variable client_started 0
+    variable publish_timer_id {}
 
-    proc build_ui {}  {
+    proc build_settings_ui {}  {
         variable settings
 
-        # Unique name per page
         set page_name "plugin_mqtt_page_default"
-
-        # Background image and "Done" button
         add_de1_page "$page_name" "settings_message.png" "default"
-        add_de1_text $page_name 1280 1310 -text [translate "Done"] \
-            -font Helv_10_bold -fill "#fAfBff" -anchor "center"
-        # TODO: save and apply settings when done is clicked
-        add_de1_button $page_name \
-            { \
+
+        # Add the "Done" button over the center button outline already present
+        # in the settings_message.png image.
+	dui add dbutton $page_name 1030 1250 1530 1370 \
+            -shape round -radius 30 \
+            -command { \
                 say [translate {Done}] $::settings(sound_button_in); \
+                ::plugins::mqtt::apply_settings_changes; \
                 page_to_show_when_off extensions \
             } \
-            980 1210 1580 1410 ""
+            -label [translate "Done"] \
+            -label_font Helv_10_bold -label_fill "#fAfBff"
+
+        # Add an extra "Apply" button to the left of the Done button.
+        # This applies the settings without leaving the settings page, so
+        # users can more easily see the status update after attempting to
+        # connect.
+	dui add dbutton $page_name 380 1250 880 1370 \
+            -shape round -radius 30 \
+            -command { \
+                say [translate {Apply}] $::settings(sound_button_in); \
+                ::plugins::mqtt::apply_settings_changes; \
+            } \
+            -label [translate "Apply"] \
+            -label_font Helv_10_bold -label_fill "#fAfBff"
 
         # Headline
         add_de1_text $page_name 1280 300 \
@@ -144,7 +159,6 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_conn_event {topic data retain} {
-        variable mqtt_client
         variable current_status
         # Republish our status each time we reconnect
         if {[dict get $data state] eq "connected"} {
@@ -295,11 +309,16 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc force_immediate_publish {} {
-        variable settings
+        variable client_started
         variable publish_timer_id
+        variable settings
 
         after cancel $publish_timer_id
-        ::plugins::mqtt::publish_state
+        if { $client_started == 0 } {
+            return
+        }
+
+        publish_state
         set publish_timer_id \
             [after [expr 1000 * $settings(publish_interval)] \
             ::plugins::mqtt::force_immediate_publish]
@@ -347,22 +366,61 @@ namespace eval ::plugins::${plugin_name} {
         }
     }
 
-    proc main {} {
-        package require mqtt
-        package require tls
-        variable settings
-        variable mqtt_client
+    proc apply_settings_changes {} {
+        variable client_started
         variable publish_timer_id
+        variable settings
 
+        save_plugin_settings mqtt
+
+        after cancel $publish_timer_id
         set publish_timer_id {}
+        if {$client_started != 0} {
+            msg "closing existing MQTT client"
+            # Calling "mqtt_client destroy" will gracefully disconnect the
+            # client, which means our last will message will not be processed
+            # by the broker, so we have to explicitly send it.
+            set dead_state {{"online": false, "de1_connected": false}}
+            mqtt_client publish "$settings(topic_prefix)/state" $dead_state 1 1
+            set client_started 0
+            # Ideally we should wait for the broker to acknowledge the message
+            # before we send the disconnect.  Unfortunately this is a bit
+            # awkward to do, so we simply wait for 50ms.
+            #
+            # Alternatively, it would be nice if the mqtt package had a way to
+            # destroy the client without sending the DISCONNECT message, so
+            # that our will message was processed by the broker.  The mqtt
+            # package currently does not provide an option for this.
+            after 50 ::plugins::mqtt::finish_client_destroy
+        } else {
+            start_client
+        }
+    }
+
+    proc finish_client_destroy {} {
+        mqtt_client destroy
+        start_client
+    }
+
+    proc start_client {} {
+        variable current_status
+        variable client_started
+        variable settings
+
+        if { $settings(host) eq "" } {
+            msg "MQTT plugin loaded, " \
+                "but disabled because no broker host configured"
+            set current_status "Disabled: no broker host configured"
+            return
+        }
+        set current_status "Connecting"
         set dead_state {{"online": false, "de1_connected": false}}
 
-        msg "Enabling MQTT plugin"
-        borg onintent ::plugins::mqtt::on_intent
         mqtt create mqtt_client \
             -username $settings(user) -password $settings(password) \
             -keepalive $settings(keepalive) -retransmit $settings(retransmit) \
            -socketcmd ::plugins::mqtt::create_socket
+        set client_started 1
         mqtt_client will "$settings(topic_prefix)/state" $dead_state 1 1
         msg "Connecting to MQTT broker $settings(host):$settings(port) " \
             "as $settings(client_name)"
@@ -373,11 +431,19 @@ namespace eval ::plugins::${plugin_name} {
             ::plugins::mqtt::on_conn_event
         mqtt_client subscribe "$settings(topic_prefix)/command" \
             ::plugins::mqtt::on_command
+    }
+
+    proc main {} {
+        package require mqtt
+        package require tls
+
+        msg "Enabling MQTT plugin"
+        plugins gui mqtt [build_settings_ui]
+        borg onintent ::plugins::mqtt::on_intent
+
+        start_client
 
 	::de1::event::listener::on_all_state_change_add \
             ::plugins::mqtt::on_state_change
-
-        # register settings gui
-        plugins gui mqtt [build_ui]
     }
 }
