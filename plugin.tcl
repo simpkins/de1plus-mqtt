@@ -120,6 +120,8 @@ namespace eval ::plugins::${plugin_name} {
             -font Helv_8 -width 10 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(port) \
+            -validate key \
+            -vcmd [list ::dui::validate_numeric %P 0 0 65535] \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
@@ -227,6 +229,8 @@ namespace eval ::plugins::${plugin_name} {
             -text "Publish Interval (ms)"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
+            -validate key \
+            -vcmd [list ::dui::validate_numeric %P 0 0 {}] \
             -font Helv_8 -width 30 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(publish_interval_ms) \
