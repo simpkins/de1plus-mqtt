@@ -50,60 +50,61 @@ namespace eval ::plugins::${plugin_name} {
             -text [translate "MQTT Settings"] -font Helv_20_bold \
             -width 1200 -fill "#444444" -anchor "center" -justify "center"
 
-        set col1_x 315
+        set col1_x 625
         set col1_label_x 650
         set label_width 400
-        set col2_x 1450
+        set col2_x 1725
+        set col2_label_x 1750
 
-        set y_start 450
+        set y_start 480
         set y_spacing 80
 
         set col1_y $y_start
         set col2_y $y_start
 
         #
-        # Left Column: Settings
+        # Left Column
         #
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
+            -width $label_width -anchor "e" -justify "right" \
             -text "Broker Host"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
-            -font Helv_8 -width 30 \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(host) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
+            -width $label_width -anchor "e" -justify "right" \
             -text "Broker Port"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
-            -font Helv_8 -width 10 \
+            -font Helv_8 -width 10 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(port) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
+            -width $label_width -anchor "e" -justify "right" \
             -text "Username"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
-            -font Helv_8 -width 30 \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(user) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
+            -width $label_width -anchor "e" -justify "right" \
             -text "Password"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
-            -font Helv_8 -width 30 \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(password) \
             -show "*" \
@@ -111,69 +112,79 @@ namespace eval ::plugins::${plugin_name} {
         set col1_y [expr $col1_y + $y_spacing]
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
+            -width $label_width -anchor "e" -justify "right" \
             -text "Client ID"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
-            -font Helv_8 -width 30 \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(client_id) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
+            -width $label_width -anchor "e" -justify "right" \
             -text "Topic Prefix"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
-            -font Helv_8 -width 30 \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(topic_prefix) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
-        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
-            -text "Use TLS"
-        add_de1_widget $page_name checkbutton $col1_label_x $col1_y \
-            {} \
-            -variable ::plugins::mqtt::settings(enable_tls) \
-            -foreground #4e85f4 \
-            -bg #ffffff -activebackground #ffffff \
-            -relief flat -borderwidth 0 \
-            -highlightthickness 0 -highlightcolor #000000 
-        set col1_y [expr $col1_y + $y_spacing]
-
-        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
-            -text "TLS CA File"
-        add_de1_variable $page_name $col1_label_x $col1_y \
-            -font Helv_8 -width 400 \
-            -anchor "nw" -justify "left" \
-            -textvariable {[::plugins::mqtt::settings_ca_file_status]}
-        set col1_y [expr $col1_y + $y_spacing]
-
-        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
-            -text "Client Cert"
-        add_de1_variable $page_name $col1_label_x $col1_y \
-            -font Helv_8 -width 400 \
-            -anchor "nw" -justify "left" \
-            -textvariable {[::plugins::mqtt::settings_client_cert_status]}
-        set col1_y [expr $col1_y + $y_spacing]
-
         #
-        # Right Column: Status
+        # Right Column
         #
 
         add_de1_text $page_name $col2_x $col2_y -font Helv_10_bold \
-            -width $label_width -anchor "nw" -justify "right" \
-            -text "Status:"
+            -width $label_width -anchor "e" -justify "right" \
+            -text "Use TLS"
+        add_de1_widget $page_name checkbutton $col2_label_x $col2_y \
+            {} \
+            -variable ::plugins::mqtt::settings(enable_tls) \
+            -foreground #4e85f4 -bg #ffffff -activebackground #ffffff \
+            -canvas_anchor "w" -relief flat -borderwidth 0 \
+            -highlightthickness 0 -highlightcolor #000000 
         set col2_y [expr $col2_y + $y_spacing]
-        add_de1_variable $page_name $col2_x $col2_y \
+
+        add_de1_text $page_name $col2_x $col2_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "TLS CA File"
+        add_de1_variable $page_name $col2_label_x $col2_y \
             -font Helv_8 -width 400 \
-            -anchor "nw" -justify "left" \
+            -anchor "w" -justify "left" \
+            -textvariable {[::plugins::mqtt::settings_ca_file_status]}
+        set col2_y [expr $col2_y + $y_spacing]
+
+        add_de1_text $page_name $col2_x $col2_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "Client Cert"
+        add_de1_variable $page_name $col2_label_x $col2_y \
+            -font Helv_8 -width 400 \
+            -anchor "w" -justify "left" \
+            -textvariable {[::plugins::mqtt::settings_client_cert_status]}
+        set col2_y [expr $col2_y + $y_spacing]
+
+        #
+        # Bottom: Status
+        #
+
+        set status_y [expr $col1_y + $y_spacing]
+        set status_x 450
+        add_de1_text $page_name $status_x $status_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "Status:"
+        add_de1_variable $page_name [expr $status_x + 10] $status_y \
+            -font Helv_8 -width 2000 \
+            -anchor "w" -justify "left" \
             -textvariable {$::plugins::mqtt::current_status}
+
+        set status_y [expr $status_y + (.4 * $y_spacing)]
+        add_de1_variable $page_name 1450 760 \
+            -font Helv_8 -width 425 \
+            -anchor "nw" -justify "left" \
+            -textvariable {[::plugins::mqtt::settings_ca_status_note]}
 
         return $page_name
     }
@@ -183,9 +194,6 @@ namespace eval ::plugins::${plugin_name} {
 
         if { $settings(ca_file) ne "" } {
             return $settings(ca_file)
-        }
-        if { $settings(enable_tls) } {
-            return "Not set. Certificate validation disabled."
         }
         return "Not set"
     }
@@ -197,6 +205,19 @@ namespace eval ::plugins::${plugin_name} {
             return "Not set"
         }
         return $settings(client_cert)
+    }
+
+    proc settings_ca_status_note {} {
+        variable settings
+
+        if { $settings(enable_tls) && $settings(ca_file) eq "" } {
+            return [string cat \
+                "Note: TLS is enabled with no CA file. " \
+                "Certificate validation is disabled. " \
+                "Upload a CA file to enable validation."
+            ]
+        }
+        return ""
     }
 
     # Helper function that prefixes our plugin name to all messages
@@ -466,7 +487,7 @@ namespace eval ::plugins::${plugin_name} {
             set current_status "Disabled: no broker host configured"
             return
         }
-        set current_status "Connecting"
+        set current_status "Connecting..."
         set dead_state {{"online": false, "de1_connected": false}}
 
         mqtt create mqtt_client \
