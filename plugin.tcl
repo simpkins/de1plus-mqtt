@@ -237,19 +237,49 @@ namespace eval ::plugins::${plugin_name} {
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
-        # TODO: future use to support publishing auto-discovery messages
-        if {0} {
-            add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
-                -width $label_width -anchor "e" -justify "right" \
-                -text "Enable HomeAssistant Auto-Discovery"
-            add_de1_widget $page_name checkbutton $col1_label_x $col1_y \
-                {} \
-                -variable ::plugins::mqtt::settings(enable_tls) \
-                -foreground #4e85f4 -bg #ffffff -activebackground #ffffff \
-                -canvas_anchor "w" -relief flat -borderwidth 0 \
-                -highlightthickness 0 -highlightcolor #000000 
-            set col1_y [expr $col1_y + $y_spacing]
-        }
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "Enable HomeAssistant Auto-Discovery"
+        add_de1_widget $page_name checkbutton $col1_label_x $col1_y \
+            {} \
+            -variable ::plugins::mqtt::settings(ha_auto_discovery_enable) \
+            -foreground #4e85f4 -bg #ffffff -activebackground #ffffff \
+            -canvas_anchor "w" -relief flat -borderwidth 0 \
+            -highlightthickness 0 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "HA Entity Name Prefix"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(ha_entity_name_prefix) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "HA Auto-discovery Prefix"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(ha_discovery_prefix) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "Unique ID"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(unique_id) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
 
         return $page_name
     }
@@ -305,7 +335,7 @@ namespace eval ::plugins::${plugin_name} {
             # doesn't work, since the mqtt library hasn't stored the fd yet,
             # and it just drops the publish message.  Therefore use an after
             # call to schedule this publish.
-            after 1 ::::plugins::mqtt::force_immediate_publish
+            after 1 ::plugins::mqtt::post_connect_publish
             set current_status "Connected"
         } else {
             # The mqtt2.0 package in the version of Androwish currently
@@ -326,6 +356,181 @@ namespace eval ::plugins::${plugin_name} {
             set current_status "[dict get $data state]: $reason_str"
             msg "connection status: $current_status"
         }
+    }
+
+    proc post_connect_publish {} {
+        variable settings
+        force_immediate_publish
+        if {$settings(ha_auto_discovery_enable)} {
+            publish_ha_discovery_messages
+        }
+    }
+
+    proc publish_ha_discovery_messages {} {
+        msg "sending HomeAssistant discovery messages"
+
+        # Sensors
+        publish_ha_sensor "State" "state" "state" {} {} {} \
+            "hass:state-machine"
+        publish_ha_sensor "Substate" "substate" "substate" {} {} {} \
+            "hass:state-machine"
+        publish_ha_sensor "Profile" "profile" "profile" {} {} {} \
+            "hass:chart-bell-curve"
+        publish_ha_sensor "Water Level" "water_level" "water_level_ml" \
+            "volume_storage" "measurement" "mL" "hass:water"
+        publish_ha_sensor "Head Temperature" "head_temp" "head_temperature" \
+            "temperature" "measurement" "\xc2\xb0C"
+        publish_ha_sensor "Mix Temperature" "mix_temp" "mix_temperature" \
+            "temperature" "measurement" "\xc2\xb0C"
+        publish_ha_sensor "Steam Temperature" "steam_temp" \
+            "steam_heater_temperature" \
+            "temperature" "measurement" "\xc2\xb0C"
+        publish_ha_sensor "Espresso Count" "espresso_count" "espresso_count" \
+            {} "total_increasing" {} "hass:coffee"
+        publish_ha_sensor "Steaming Count" "steaming_count" "steaming_count" \
+            {} "total_increasing" {} "hass:sprinkler"
+
+        # A switch to control the sleep/wake state
+        publish_ha_switch
+    }
+
+    proc publish_ha_sensor {
+        name
+        entity_name
+        field
+        {device_class {}}
+        {state_class {}}
+        {unit_of_measurement {}}
+        {icon {}}
+    } {
+        variable settings
+
+        set device_id $settings(unique_id)
+        set unique_id "de1plus_${device_id}_${entity_name}"
+        set state_topic "$settings(topic_prefix)/state"
+
+        # Build the config dict
+
+        set config [common_ha_entity_settings]
+        dict set config name [list str "$settings(ha_entity_name_prefix)$name"]
+        dict set config unique_id [list str $unique_id]
+        dict set config state_topic [list str $state_topic]
+        dict set config value_template \
+            [list str "\{\{ value_json.$field \}\}"]
+
+        if {$device_class ne ""} {
+            dict set config device_class [list str $device_class]
+        }
+        if {$state_class ne ""} {
+            dict set config state_class [list str $state_class]
+        }
+        if {$unit_of_measurement ne ""} {
+            dict set config unit_of_measurement [list str $unit_of_measurement]
+        }
+        if {$icon ne ""} {
+            dict set config icon [list str $icon]
+        }
+
+        # Publish the message
+        set msg [dict2json $config]
+        set topic "$settings(ha_discovery_prefix)/sensor/${unique_id}/config"
+        mqtt_client publish $topic $msg 1 1
+    }
+
+    proc publish_ha_switch {} {
+        variable settings
+
+        set device_id $settings(unique_id)
+        set unique_id "de1plus_${device_id}_switch"
+        set state_topic "$settings(topic_prefix)/state"
+
+        set config [common_ha_entity_settings]
+        dict set config name [list str "$settings(ha_entity_name_prefix)On"]
+        dict set config unique_id [list str $unique_id]
+        dict set config icon [list str "hass:coffee-maker"]
+        dict set config state_topic [list str "$settings(topic_prefix)/state"]
+        dict set config state_on {bool 1}
+        dict set config state_off {bool 0}
+        dict set config value_template \
+            [list str "\{\{ value_json.wake_state \}\}"]
+        dict set config command_topic \
+            [list str "$settings(topic_prefix)/command"]
+        dict set config payload_on {str "wake"}
+        dict set config payload_off {str "sleep"}
+
+        # Publish the message
+        set msg [dict2json $config]
+        set topic "$settings(ha_discovery_prefix)/switch/${unique_id}/config"
+        mqtt_client publish $topic $msg 1 1
+    }
+
+    proc common_ha_entity_settings {} {
+        variable settings
+
+        set config ""
+
+        # The availability information is the same for all entities
+        set avail ""
+        dict set avail topic [list str "$settings(topic_prefix)/state"]
+        dict set avail payload_available {bool 1}
+        dict set avail payload_not_available {bool 0}
+        dict set avail value_template \
+            [list str "\{\{ value_json.de1_connected \}\}"]
+
+        dict set config availability [list "dict" $avail]
+        dict set config device [list "dict" [ha_device_info]]
+        return $config
+    }
+
+    proc ha_device_info {} {
+        variable settings
+
+        set device_info ""
+
+        set model_name [de_model_name]
+        if {$model_name ne ""} {
+            dict set device_info model {str $model_name}
+            dict set device_info name {str "Decent Espresso $model_name"}
+        } else {
+            dict set device_info name {str "Decent Espresso DE1+"}
+        }
+
+        dict set device_info manufacturer {str "Decent Espresso"}
+        set app_version [package version de1app]
+        if {[info exists ::settings(firmware_version_number)]} {
+            set fw_version $::settings(firmware_version_number)
+            append app_version ", fw=$fw_version"
+        }
+        dict set device_info sw_version [list str $app_version]
+        set ids_list {}
+        lappend ids_list [list "str" $settings(unique_id)]
+        dict set device_info identifiers [list "list" $ids_list]
+        set conns {}
+        if {[info exists ::settings(bluetooth_address)]} {
+            if {$::settings(bluetooth_address) ne ""} {
+                set conn_tuple [list \
+                    [list "str" "mac"] \
+                    [list "str" $::settings(bluetooth_address)] \
+                ]
+                lappend conns [list "list" $conn_tuple]
+            }
+        }
+        dict set device_info connections [list "list" $conns]
+
+        return $device_info
+    }
+
+    proc de_model_name {} {
+	set model_names [dict create \
+            1 DE1 2 DE1+ 3 DE1PRO 4 DE1XL 5 DE1CAFE 6 DE1XXL 7 DE1XXXL \
+        ]
+	if {[info exists ::settings(machine_model)]} {
+            set model_id $::settings(machine_model)
+            if {dict exists $model_names $model_id} {
+                return [dict get $model_names $model_id]
+            }
+        }
+        return {}
     }
 
     proc on_command {topic data retain} {
@@ -367,11 +572,8 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_intent {args} {
-        msg "on intent"
-    }
-
-    proc on_wake {args} {
-        msg "on wake"
+        # This method exists purely to handle the borg alarm wakeu
+        # we schedule above.
     }
 
     proc json_quote_str {value} {
@@ -383,23 +585,37 @@ namespace eval ::plugins::${plugin_name} {
     # function, but it doesn't handle empty strings.  In general serializing
     # JSON requires knowing data type information, so this version accepts
     # dicts where each value is a 2-tuple of {type, data}
-    proc dict2json { data } {
+    proc dict2json {data} {
         set json ""
         set sep ""
         foreach {key value_info} [lsort -stride 2 $data] {
-            lassign $value_info type value
-            append json "$sep[json_quote_str $key]: "
-            switch -- $type {
-                "str" { append json [json_quote_str $value] }
-                "bool" { append json [expr $value ? "true" : "false"] }
-                "num" { append json $value }
-                "null" { append json "null" }
-                "dict" { append json [dict2json $value] }
-                default { error "Unknown JSON type \"$value\"" }
-            }
+            append json "$sep[json_quote_str $key]: [value2json $value_info]"
             set sep ", "
         }
         return "{$json}"
+    }
+
+    proc list2json {data} {
+        set json ""
+        set sep ""
+        foreach {value_info} $data {
+            append json "$sep[value2json $value_info]"
+            set sep ", "
+        }
+        return "\[$json\]"
+    }
+
+    proc value2json {value_info} {
+        lassign $value_info type value
+        switch -- $type {
+            "str" { return [json_quote_str $value] }
+            "bool" { return [expr $value ? "true" : "false"] }
+            "num" { return $value }
+            "null" { return "null" }
+            "dict" { return [dict2json $value] }
+            "list" { return [list2json $value] }
+            default { error "Unknown JSON type \"$type\"" }
+        }
     }
 
     proc publish_state {} {
@@ -587,9 +803,24 @@ namespace eval ::plugins::${plugin_name} {
         package require mqtt
         package require tls
 
+        variable settings
+
         msg "Enabling MQTT plugin"
         plugins gui mqtt [build_settings_ui]
         borg onintent ::plugins::mqtt::on_intent
+
+        # We generate a unique ID to avoid conflicts if there are multiple
+        # DE1+ devices.  On first start-up this value is generally empty, so we
+        # pick a new value then save it to the settings.
+        if {$settings(unique_id) eq ""} {
+            set rand_id [expr int(0xffffffff * rand())]
+            set unique_id [format "%08x" $rand_id]
+            set settings(unique_id) $unique_id
+            if {$settings(topic_prefix) eq ""} {
+                set settings(topic_prefix) "de1plus/${unique_id}"
+            }
+            save_plugin_settings mqtt
+        }
 
         start_client
 

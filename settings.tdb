@@ -3,10 +3,14 @@ port 8883
 user {your_user}
 password {your_password}
 client_id {de1plus}
-topic_prefix {de1plus/main}
+unique_id {}
+topic_prefix {}
 publish_interval_ms 60000
 retransmit_ms 5000
 enable_tls 1
 ca_file {}
 client_cert {}
 client_key {}
+ha_auto_discovery_enable 0
+ha_entity_name_prefix {DE1+ }
+ha_discovery_prefix {homeassistant}
