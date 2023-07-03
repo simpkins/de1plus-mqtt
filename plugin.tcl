@@ -15,10 +15,18 @@ namespace eval ::plugins::${plugin_name} {
     variable publish_timer_id {}
 
     proc build_settings_ui {}  {
-        variable settings
+        build_settings_page1
+        build_settings_page2
+        return "plugin_mqtt_settings1"
+    }
 
-        set page_name "plugin_mqtt_page_default"
+    proc common_page_setup {page_name next_page_name next_page_id}  {
         add_de1_page "$page_name" "settings_message.png" "default"
+
+        # Headline
+        add_de1_text $page_name 1280 300 \
+            -text [translate "MQTT Settings"] -font Helv_20_bold \
+            -width 1200 -fill "#444444" -anchor "center" -justify "center"
 
         # Add the "Done" button over the center button outline already present
         # in the settings_message.png image.
@@ -45,10 +53,37 @@ namespace eval ::plugins::${plugin_name} {
             -label [translate "Apply"] \
             -label_font Helv_10_bold -label_fill "#fAfBff"
 
-        # Headline
-        add_de1_text $page_name 1280 300 \
-            -text [translate "MQTT Settings"] -font Helv_20_bold \
-            -width 1200 -fill "#444444" -anchor "center" -justify "center"
+        # Button to go to the other page
+        set other_page_cmd [string cat \
+            "say [translate $next_page_name];" \
+            "page_to_show_when_off $next_page_id" \
+        ]
+	dui add dbutton $page_name 1680 1250 2180 1370 \
+            -shape round -radius 30 \
+            -command $other_page_cmd \
+            -label [translate $next_page_name] \
+            -label_font Helv_10_bold -label_fill "#fAfBff"
+
+        #
+        # Status line
+        #
+
+        set status_x 450
+        set status_y 1120
+        add_de1_text $page_name $status_x $status_y -font Helv_10_bold \
+            -width 1000 -anchor "e" -justify "right" \
+            -text "Status:"
+        add_de1_variable $page_name [expr $status_x + 10] $status_y \
+            -font Helv_8 -width 2000 \
+            -anchor "w" -justify "left" \
+            -textvariable {$::plugins::mqtt::current_status}
+    }
+
+    proc build_settings_page1 {}  {
+        variable settings
+
+        set page_name "plugin_mqtt_settings1"
+        common_page_setup $page_name "Page 2" plugin_mqtt_settings2
 
         set col1_x 625
         set col1_label_x 650
@@ -166,25 +201,51 @@ namespace eval ::plugins::${plugin_name} {
             -textvariable {[::plugins::mqtt::settings_client_cert_status]}
         set col2_y [expr $col2_y + $y_spacing]
 
-        #
-        # Bottom: Status
-        #
-
-        set status_y [expr $col1_y + $y_spacing]
-        set status_x 450
-        add_de1_text $page_name $status_x $status_y -font Helv_10_bold \
-            -width $label_width -anchor "e" -justify "right" \
-            -text "Status:"
-        add_de1_variable $page_name [expr $status_x + 10] $status_y \
-            -font Helv_8 -width 2000 \
-            -anchor "w" -justify "left" \
-            -textvariable {$::plugins::mqtt::current_status}
-
-        set status_y [expr $status_y + (.4 * $y_spacing)]
+        # Warning if TLS is enabled with no cert validation
         add_de1_variable $page_name 1450 760 \
             -font Helv_8 -width 425 \
             -anchor "nw" -justify "left" \
             -textvariable {[::plugins::mqtt::settings_ca_status_note]}
+
+        return $page_name
+    }
+
+    proc build_settings_page2 {}  {
+        variable settings
+
+        set page_name "plugin_mqtt_settings2"
+        common_page_setup $page_name "Page 1" plugin_mqtt_settings1
+
+        set col1_x 1225
+        set col1_label_x 1250
+        set label_width 900
+        set col1_y 480
+        set y_spacing 80
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "Publish Interval (ms)"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(publish_interval_ms) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        # TODO: future use to support publishing auto-discovery messages
+        if {0} {
+            add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+                -width $label_width -anchor "e" -justify "right" \
+                -text "Enable HomeAssistant Auto-Discovery"
+            add_de1_widget $page_name checkbutton $col1_label_x $col1_y \
+                {} \
+                -variable ::plugins::mqtt::settings(enable_tls) \
+                -foreground #4e85f4 -bg #ffffff -activebackground #ffffff \
+                -canvas_anchor "w" -relief flat -borderwidth 0 \
+                -highlightthickness 0 -highlightcolor #000000 
+            set col1_y [expr $col1_y + $y_spacing]
+        }
 
         return $page_name
     }
@@ -393,7 +454,7 @@ namespace eval ::plugins::${plugin_name} {
 
         publish_state
         set publish_timer_id \
-            [after [expr 1000 * $settings(publish_interval)] \
+            [after $settings(publish_interval_ms) \
             ::plugins::mqtt::force_immediate_publish]
     }
 
@@ -490,9 +551,20 @@ namespace eval ::plugins::${plugin_name} {
         set current_status "Connecting..."
         set dead_state {{"online": false, "de1_connected": false}}
 
+        # MQTT requires the client to publish packets periodically for
+        # keepalive purposes.  The tcl mqtt package will send PINGREQ packets
+        # on its own if we don't publish anything within the keepalive
+        # interval.  However, it's better for us to just publish a state update
+        # rather than sending an empty PINGREQ packet with no state data.
+        #
+        # Therefore set the keepalive setting slightly higher than our publish
+        # interval so that the tcl mqtt package won't ever need to send its
+        # own PINGREQ packets.
+        set keepalive_sec [expr ($settings(publish_interval_ms) + 10000) / 1000]
+
         mqtt create mqtt_client \
             -username $settings(user) -password $settings(password) \
-            -keepalive $settings(keepalive) -retransmit $settings(retransmit) \
+            -keepalive $keepalive_sec -retransmit $settings(retransmit_ms) \
            -socketcmd ::plugins::mqtt::create_socket
         set client_started 1
         mqtt_client will "$settings(topic_prefix)/state" $dead_state 1 1
