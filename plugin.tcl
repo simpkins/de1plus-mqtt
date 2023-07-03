@@ -106,6 +106,7 @@ namespace eval ::plugins::${plugin_name} {
             -font Helv_8 -width 30 \
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(password) \
+            -show "*" \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
         set col1_y [expr $col1_y + $y_spacing]
 
