@@ -203,7 +203,7 @@ namespace eval ::plugins::${plugin_name} {
             -textvariable {[::plugins::mqtt::settings_client_cert_status]}
         set col2_y [expr $col2_y + $y_spacing]
 
-        # Warning if TLS is enabled with no cert validation
+        # Warning if TLS is enabled with no cert verification
         add_de1_variable $page_name 1450 760 \
             -font Helv_8 -width 425 \
             -anchor "nw" -justify "left" \
@@ -308,8 +308,8 @@ namespace eval ::plugins::${plugin_name} {
         if { $settings(enable_tls) && $settings(ca_file) eq "" } {
             return [string cat \
                 "Note: TLS is enabled with no CA file. " \
-                "Certificate validation is disabled. " \
-                "Upload a CA file to enable validation."
+                "Certificate verification is disabled. " \
+                "Upload a CA file to enable verification."
             ]
         }
         return ""
@@ -338,10 +338,12 @@ namespace eval ::plugins::${plugin_name} {
             after 1 ::plugins::mqtt::post_connect_publish
             set current_status "Connected"
         } else {
-            # The mqtt2.0 package in the version of Androwish currently
-            # shipping with DE1 unfortunately does not seem to send connection
-            # status updates for most errors, so this unfortunately does not
-            # let us record the error reason properly in most cases.
+            # The mqtt package unfortunately does not deliver connection events
+            # to us with the TCP connection is refused.  We only mostly only
+            # get connection events after the connection is established and the
+            # server sends a CONNACK packet.  Therefore on TCP connect errors
+            # our current_status will unfortunately just remain as
+            # "Connecting..." in most cases.
             msg "connection status: $data"
 
             switch -- [dict get $data reason] {
@@ -542,11 +544,11 @@ namespace eval ::plugins::${plugin_name} {
                     msg "wake: waking up"
                     start_idle
 
-                    # It would be nice if we could also turn on the tablet
-                    # display if it was off.  This alarm wakeup call is an
-                    # attempt to do that, but it doesn't seem to work and I
-                    # haven't spent much time investigating how to wake the
-                    # display from within Androwish.
+                    # Use `borg alarm wakeup` to attempt to turn on the tablet
+                    # display.  We send this to the "self" component, which
+                    # will invoke our on_intent callback.  This seems to work
+                    # to turn the display on in my limited testing, but I'm not
+                    # sure if it's 100% reliable.
                     borg alarm wakeup 1 0 "action.wakeup" \
                         {} {} {} "self"
                 } else {
@@ -572,8 +574,9 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_intent {args} {
-        # This method exists purely to handle the borg alarm wakeu
-        # we schedule above.
+        # This method exists purely to handle the borg alarm wakeup we schedule
+        # above.  We don't do anything here, we only want the alarm to attempt
+        # to wake the tablet display.
     }
 
     proc json_quote_str {value} {
@@ -692,7 +695,7 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     # We have to define our own custom TLS callback if we want to perform
-    # server certificate validation.
+    # server certificate verification.
     proc tls_callback {option args} {
         variable current_status
         variable settings

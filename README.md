@@ -38,3 +38,9 @@ changes in the Android settings:
   and that android is not configured to put Androwish to sleep when not in use.
 
 * Disable the "Adaptive Battery" setting
+
+These settings should allow the MQTT plugin to successfully maintain its
+connection to the broker as long as the tablet is plugged in to power (which is
+normally the case when connected to your espresso machine).  Android may still
+disconnect the background MQTT connection if the tablet is on battery power and
+the tablet display is off.
