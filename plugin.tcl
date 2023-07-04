@@ -7,7 +7,7 @@ namespace eval ::plugins::${plugin_name} {
     # These are shown in the plugin selection page
     variable author "Adam Simpkins"
     variable contact "adam@adamsimpkins.net"
-    variable version 0.1
+    variable version 1.0
     variable description "Report events and allow control via MQTT."
     variable name "MQTT Integration"
     variable current_status "Not connected"
