@@ -20,8 +20,8 @@ This plugin can automatically publish
 messages, making it very easy to use with HomeAssistant with minimal manual
 configuration.
 
-Currently it publishes configuration 9 different sensors, as well as 1 switch
-to allow remotely turning on or off the machine.
+Currently it publishes configuration for 9 different sensors, as well as 1
+switch to allow remotely turning on or off the machine.
 
 ## Overriding Android Doze Mode
 
