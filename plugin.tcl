@@ -491,8 +491,9 @@ namespace eval ::plugins::${plugin_name} {
 
         set model_name [de_model_name]
         if {$model_name ne ""} {
-            dict set device_info model {str $model_name}
-            dict set device_info name {str "Decent Espresso $model_name"}
+            dict set device_info model [list str $model_name]
+            dict set device_info name \
+                [list str "Decent Espresso $model_name"]
         } else {
             dict set device_info name {str "Decent Espresso DE1+"}
         }
