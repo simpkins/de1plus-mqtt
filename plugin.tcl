@@ -528,7 +528,7 @@ namespace eval ::plugins::${plugin_name} {
         ]
 	if {[info exists ::settings(machine_model)]} {
             set model_id $::settings(machine_model)
-            if {dict exists $model_names $model_id} {
+            if {[dict exists $model_names $model_id]} {
                 return [dict get $model_names $model_id]
             }
         }
