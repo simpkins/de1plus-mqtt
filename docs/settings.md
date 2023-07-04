@@ -1,7 +1,5 @@
 # Settings
 
-## Main settings
-
 * Broker Host and Port
 
   The hostname (or IP address) and port of the MQTT broker to connect to.
@@ -25,41 +23,38 @@
   `{topic_prefix}/state`, and wake/sleep commands will be listened for on the
   `{topic_prefix}/command` prefix.
 
-  If you have multiple DE1+ machines, you will want to give each one a unique
-  prefix.
+  The default topic prefix is `de1plus/<unique_id>`.  The `unique_id` is chosen
+  randomly the first time you use the plugin.  This ID helps make sure that
+  multiple DE1+ machines using the same MQTT broker do not use conflicting
+  topic names.
 
 * Use TLS
 
   Whether to communicate with the broker using TLS encryption or not.
 
-## Advanced Settings
-
-These settings are only configurable by connecting your tablet to a computer
-and manually editing the `settings.tdb` file and/or uploading other files.
-
 * TLS CA File
 
-  To enable TLS server certificate validation, a Certificate Authority file
-  must be uploaded.  The `ca_file` setting in settings.tdb should then be
-  updated to contain the path to the CA file, relative to the `de1plus`
-  directory.  e.g., if you put the CA file at `de1plus/plugins/mqtt/ca.crt`,
-  then edit `settings.tdb` to include the line `ca_file {plugins/mqtt/ca.crt}`
+  This setting lists the path name to Certificate Authority file to use for
+  verifying the MQTT broker's TLS certificate.
+
+  This setting cannot be edited via the UI--you will need to upload a CA
+  file to the tablet using a USB connection to a computer.  After uploading a
+  CA file, edit the `ca_file` setting in `de1plus/plugins/mqtt/settings.tdb` to
+  contain the path where you have placed the CA file.  This path should be
+  relative to the `de1plus` directory.  e.g., if you put the CA file at
+  `de1plus/plugins/mqtt/ca.crt`, then edit `settings.tdb` to include the line
+  `ca_file {plugins/mqtt/ca.crt}`
 
 * TLS Client Certificate
 
   If you want to authenticate to the MQTT server by sending a TLS client
-  certificate, the certificate and key files must be uploaded.  After placing
-  these files inside the de1plus directory, edit `settings.tdb` and set the
-  `client_cert` and `client_key` fields to contain the path of these files,
-  relative to the `de1plus` directory.
+  certificate, the certificate and key files must be uploaded to the tablet.
+  After placing these files inside the de1plus directory, edit `settings.tdb`
+  and set the `client_cert` and `client_key` fields to contain the path of
+  these files, relative to the `de1plus` directory.
 
   The client key file should be unencrypted, so it can be loaded without
   needing a password.
-
-  ```
-  client_cert {plugins/mqtt/de1.crt}
-  client_key {plugins/mqtt/de1.key}
-  ```
 
 * Publish Interval
 
@@ -71,3 +66,35 @@ and manually editing the `settings.tdb` file and/or uploading other files.
   `publish_interval` seconds have elapsed since the last update.  This allows
   temperature values updates to be published regularly even when the device
   state has not changed.
+
+* Enable HomeAssistant Auto-Discovery
+
+  If you enable this setting, the plugin will publish
+  [HomeAssistant discovery messages](https://www.home-assistant.io/integrations/mqtt/#discovery-messages)
+  each time it establishes a connection to the MQTT broker.
+
+  This allows HomeAssistant to automatically know about the sensors and switch
+  provided by the plugin, without having to manually configure it in
+  HomeAssistant.
+
+* HA Entity Name Prefix
+
+  A string prefix to use for all of the HomeAssistant entity names in the
+  auto-discovery configuration messages.  e.g., if you set the prefix to
+  `DE1XXL `, the sensor names will be `DE1XXL Water Level`,
+  `DE1XXL Steam Temperature`, etc.
+
+* HA Auto-discovery Prefix
+
+  The MQTT topic prefix to use when publishing HomeAssistant auto-discovery
+  messages.  The default is `homeassistant`, which is the default value for
+  HomeAssistant.  You should only need to change this if you have manually
+  edited the topic prefix in your
+  [HomeAssistant configuration](https://www.home-assistant.io/integrations/mqtt/#discovery-options)
+
+* Unique ID
+
+  This is a string to include as part of the
+  [`unique_id`](https://www.home-assistant.io/integrations/sensor.mqtt/#unique_id)
+  field for each entity published to HomeAssistant.  A unique ID will be
+  randomly generated for you the first time you use the plugin.

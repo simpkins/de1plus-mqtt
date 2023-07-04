@@ -1,20 +1,27 @@
 # MQTT plugin for the Decent Espresso DE1+
 
-This plugin adds MQTT support to DE1+ machines.  It supports publishing status
-information to MQTT, as well as receiving commands to wake the device or put it
-to sleep.
+This plugin adds MQTT support to [Decent Espresso](https://decentespresso.com/)
+machines.  It supports publishing the current device state, temperature
+sensors, water level, and usage counts, and also allows remotely waking or
+putting the machine to sleep via MQTT messages.
 
-See [docs/topics.md](docs/topics.md) for a description of the topics.
+See [docs/topics.md](docs/topics.md) for a description of the MQTT topics used
+by the plugin.  [docs/settings.md](docs/settings.md) contains some details
+about the configuration settings.
 
-## Settings
+This is built using the
+[tcl mqtt package](https://chiselapp.com/user/schelte/repository/mqtt/index)
+that is already included by default in [AndroWish](https://www.androwish.org/).
 
-Most settings are configurable through the settings UI in the app.
+## HomeAssistant Auto-Discovery
 
-A few settings can only be configured by manually uploading files or editing
-the `settings.tdb` file by plugging the tablet into a computer.
+This plugin can automatically publish
+[HomeAssistant auto-discovery](https://www.home-assistant.io/integrations/mqtt/#mqtt-discovery)
+messages, making it very easy to use with HomeAssistant with minimal manual
+configuration.
 
-See [docs/settings.md](docs/settings.md) for more detailed documentation of the
-settings.
+Currently it publishes configuration 9 different sensors, as well as 1 switch
+to allow remotely turning on or off the machine.
 
 ## Overriding Android Doze Mode
 
