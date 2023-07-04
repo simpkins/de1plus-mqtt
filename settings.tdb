@@ -2,7 +2,7 @@ host {}
 port 8883
 user {your_user}
 password {your_password}
-client_id {de1plus}
+client_id {}
 unique_id {}
 topic_prefix {}
 publish_interval_ms 60000

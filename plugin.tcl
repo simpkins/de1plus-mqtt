@@ -783,7 +783,7 @@ namespace eval ::plugins::${plugin_name} {
         # Therefore set the keepalive setting slightly higher than our publish
         # interval so that the tcl mqtt package won't ever need to send its
         # own PINGREQ packets.
-        set keepalive_sec [expr ($settings(publish_interval_ms) + 10000) / 1000]
+        set keepalive_sec [expr ($settings(publish_interval_ms) + 3000) / 1000]
 
         mqtt create mqtt_client \
             -username $settings(user) -password $settings(password) \
@@ -802,15 +802,9 @@ namespace eval ::plugins::${plugin_name} {
             ::plugins::mqtt::on_command
     }
 
-    proc main {} {
-        package require mqtt
-        package require tls
-
+    proc populate_unique_id {} {
         variable settings
-
-        msg "Enabling MQTT plugin"
-        plugins gui mqtt [build_settings_ui]
-        borg onintent ::plugins::mqtt::on_intent
+        set updated_settings 0
 
         # We generate a unique ID to avoid conflicts if there are multiple
         # DE1+ devices.  On first start-up this value is generally empty, so we
@@ -819,11 +813,30 @@ namespace eval ::plugins::${plugin_name} {
             set rand_id [expr int(0xffffffff * rand())]
             set unique_id [format "%08x" $rand_id]
             set settings(unique_id) $unique_id
-            if {$settings(topic_prefix) eq ""} {
-                set settings(topic_prefix) "de1plus/${unique_id}"
-            }
+            set updated_settings 1
+        }
+        if {$settings(topic_prefix) eq ""} {
+            set settings(topic_prefix) "de1plus/$settings(unique_id)"
+            set updated_settings 1
+        }
+        if {$settings(client_id) eq ""} {
+            set settings(client_id) "de1plus_$settings(unique_id)"
+            set updated_settings 1
+        }
+
+        if {$updated_settings} {
             save_plugin_settings mqtt
         }
+    }
+
+    proc main {} {
+        package require mqtt
+        package require tls
+
+        msg "Enabling MQTT plugin"
+        plugins gui mqtt [build_settings_ui]
+        borg onintent ::plugins::mqtt::on_intent
+        populate_unique_id
 
         start_client
 

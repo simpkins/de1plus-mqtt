@@ -1,5 +1,8 @@
 # Settings
 
+Here are more detailed descriptions of the settings configurable in the
+settings UI dialog:
+
 * Broker Host and Port
 
   The hostname (or IP address) and port of the MQTT broker to connect to.
@@ -14,8 +17,13 @@
 * Client ID
 
   The Client ID to use when connecting to the MQTT broker.  Every client must
-  have a unique ID, so if you have multiple DE1+ machines, give each one a
-  unique ID.
+  have a unique ID, so if you have multiple DE1+ machines, each one should have
+  a unique ID.
+
+  If this setting is empty (which is the default the first time you run the
+  plugin), a unique ID will be chosen and the prefix will be saved as
+  `de1plus_<unique_id>`.  This allows a unique ID to be assigned to each
+  machine to prevent client ID conflicts if you have multiple DE1+ machines.
 
 * Topic Prefix
 
@@ -23,10 +31,10 @@
   `{topic_prefix}/state`, and wake/sleep commands will be listened for on the
   `{topic_prefix}/command` prefix.
 
-  The default topic prefix is `de1plus/<unique_id>`.  The `unique_id` is chosen
-  randomly the first time you use the plugin.  This ID helps make sure that
-  multiple DE1+ machines using the same MQTT broker do not use conflicting
-  topic names.
+  If this setting is empty (which is the default the first time you run the
+  plugin), a unique ID will be chosen and the prefix will be saved as
+  `de1plus/<unique_id>`.  This allows a unique ID to be assigned to each
+  machine to prevent topic name conflicts if you have multiple DE1+ machines.
 
 * Use TLS
 
@@ -56,11 +64,11 @@
   The client key file should be unencrypted, so it can be loaded without
   needing a password.
 
-* Publish Interval
+* Publish Interval (ms)
 
   The `publish_interval` setting controls how frequently updates are published
-  to the `{topic_prefix}/state` topic (in seconds).  The default interval is 60
-  seconds.
+  to the `{topic_prefix}/state` topic, in milliseconds.  The default interval
+  is 60 seconds.
 
   Updates are published whenever the device state changes, or when at least
   `publish_interval` seconds have elapsed since the last update.  This allows

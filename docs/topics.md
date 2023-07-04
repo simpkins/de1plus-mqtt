@@ -7,7 +7,7 @@ contains a JSON dictionary, which will contain the following fields:
 
 * `online`
 
-  bool.  True when the tablet is connected to the MQTT broker, and false
+  Boolean.  True when the tablet is connected to the MQTT broker, and false
   when the tablet is disconnected.  This field is always present.
 
 * `de1_connected`
