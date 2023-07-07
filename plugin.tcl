@@ -537,40 +537,77 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_command {topic data retain} {
-        switch -- $data {
-            "wake" {
-                set current_state $::de1_num_state($::de1(state))
-                if {$current_state == "Sleep" || \
-                    $current_state == "GoingToSleep"} {
-                    msg "wake: waking up"
-                    start_idle
+        if {[catch {process_command $topic $data $retain} result]} {
+            msg -ERROR "bug processing MQTT command: $result"
+        }
+    }
 
-                    # Use `borg alarm wakeup` to attempt to turn on the tablet
-                    # display.  We send this to the "self" component, which
-                    # will invoke our on_intent callback.  This seems to work
-                    # to turn the display on in my limited testing, but I'm not
-                    # sure if it's 100% reliable.
-                    borg alarm wakeup 1 0 "action.wakeup" \
-                        {} {} {} "self"
-                } else {
-                    msg "wake: already awake"
+    proc process_command {topic data retain} {
+        if {$data eq "wake"} {
+            set current_state $::de1_num_state($::de1(state))
+            if {$current_state == "Sleep" || \
+                $current_state == "GoingToSleep"} {
+                msg "wake: waking up"
+                start_idle
+
+                # Use `borg alarm wakeup` to attempt to turn on the tablet
+                # display.  We send this to the "self" component, which
+                # will invoke our on_intent callback.  This seems to work
+                # to turn the display on in my limited testing, but I'm not
+                # sure if it's 100% reliable.
+                borg alarm wakeup 1 0 "action.wakeup" \
+                    {} {} {} "self"
+            } else {
+                msg "wake: already awake"
+            }
+        } elseif {$data eq "sleep"} {
+            set current_state $::de1_num_state($::de1(state))
+            if {$current_state == "Idle"} {
+                msg "sleep: going to sleep"
+                start_sleep
+            } elseif {$current_state == "Sleep" || \
+                $current_state == "GoingToSleep"} {
+                msg "sleep: already sleeping"
+            } else {
+                msg "sleep: machine in use ($current_state); not sleeping"
+            }
+        } elseif {[string match {profile_filename *} $data]} {
+            # Set profile by filename.
+            set profile_fn \
+                [string range $data [string length {profile_filename }] end]
+            set full_fn "[homedir]/profiles/${profile_fn}.tcl"
+            if {[file isfile $full_fn]} {
+                msg "setting profile to '$profile_fn'"
+                select_profile $profile_fn
+            } else {
+                msg "ignoring set profile_filename command: no file named" \
+                    "\"$profile_fn\""
+            }
+        } elseif {[string match {profile *} $data]} {
+            # Set profile by title.  We have to search through the profile
+            # files to find one with this title.
+            set profile_name \
+                [string range $data [string length {profile }] end]
+            set profiles [get_profile_filenames]
+            foreach fn $profiles {
+		set full_fn "[homedir]/profiles/${fn}.tcl"
+		unset -nocomplain profile
+                catch {
+                    array set profile \
+                    [encoding convertfrom utf-8 [read_binary_file $full_fn]]
+                }
+		if {[info exists profile(profile_title)]} {
+                    if {$profile(profile_title) eq $profile_name} {
+                        msg "setting profile to \"$profile_name\" ($fn)"
+                        select_profile $fn
+                        return
+                    }
                 }
             }
-            "sleep" {
-                set current_state $::de1_num_state($::de1(state))
-                if {$current_state == "Idle"} {
-                    msg "sleep: going to sleep"
-                    start_sleep
-                } elseif {$current_state == "Sleep" || \
-                    $current_state == "GoingToSleep"} {
-                    msg "sleep: already sleeping"
-                } else {
-                    msg "sleep: machine in use ($current_state); not sleeping"
-                }
-            }
-            default {
-                msg "unknown MQTT command: $data"
-            }
+            msg "ignoring set profile command: no profile found with the" \
+                "title \"$profile_name\""
+        } else {
+            msg "unknown MQTT command: $data"
         }
     }
 

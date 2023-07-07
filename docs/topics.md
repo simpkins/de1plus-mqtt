@@ -82,7 +82,7 @@ contains a JSON dictionary, which will contain the following fields:
 ## `{topic_prefix}/command`
 
 The plugin takes action based on messages sent to the `command` topic.
-Currently only 2 commands are supported:
+Currently the following are supported:
 
 * `wake`
 
@@ -91,3 +91,20 @@ Currently only 2 commands are supported:
 * `sleep`
 
   Puts the machine to sleep, if it is not actively pouring.
+
+* `profile PROFILE`
+
+  Sets the current machine profile.
+
+  The profile name may contain spaces (and any other special characters).  All
+  data following the space after `profile` is treated as the profile name,
+  without any escaping.
+
+* `profile_filename PROFILE_FILENAME`
+
+  Sets the current machine profile to the specified profile, by profile
+  filename.
+
+  The file name may contain spaces (and any other special characters).  All
+  data following the space after `profile_filename` is treated as the file
+  name, without any escaping.
