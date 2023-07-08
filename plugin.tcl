@@ -640,6 +640,8 @@ namespace eval ::plugins::${plugin_name} {
             dict set state substate \
                 [list str $::de1_substate_types($::de1(substate))]
             dict set state profile [list str $::settings(profile_title)]
+            dict set state profile_filename \
+                [list str $::settings(profile_filename)]
             dict set state espresso_count [list num $::settings(espresso_count)]
             dict set state steaming_count [list num $::settings(steaming_count)]
             dict set state head_temperature [list num $::de1(head_temperature)]
@@ -663,6 +665,10 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_state_change {event_dict} {
+        force_immediate_publish
+    }
+
+    proc on_profile_change {args} {
         force_immediate_publish
     }
 
@@ -843,5 +849,7 @@ namespace eval ::plugins::${plugin_name} {
 
 	::de1::event::listener::on_all_state_change_add \
             ::plugins::mqtt::on_state_change
+        trace add variable ::settings(profile_filename) write \
+            ::plugins::mqtt::on_profile_change
     }
 }

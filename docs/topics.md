@@ -36,7 +36,11 @@ contains a JSON dictionary, which will contain the following fields:
 
 * `profile`
 
-  String.  The name of the currently configured shot profile.
+  String.  The title of the currently configured shot profile.
+
+* `profile_filename`
+
+  String.  The filename of the currently configured shot profile.
 
 * `espresso_count`
 
