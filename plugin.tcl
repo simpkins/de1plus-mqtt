@@ -320,7 +320,7 @@ namespace eval ::plugins::${plugin_name} {
     proc msg {args} {
         set first_arg [lindex $args 0]
         if { [string index $first_arg 0] == {-} } {
-            ::msg $first_arg [namespace current] [lrange $args 1 end]
+            ::msg $first_arg [namespace current] {*}[lrange $args 1 end]
         } else {
             ::msg [namespace current] {*}$args
         }
