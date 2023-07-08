@@ -250,6 +250,17 @@ namespace eval ::plugins::${plugin_name} {
 
         add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
             -width $label_width -anchor "e" -justify "right" \
+            -text "HA Device Name"
+        add_de1_widget $page_name entry $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 30 -canvas_anchor "w" \
+            -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
+            -textvariable ::plugins::mqtt::settings(ha_device_name) \
+            -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
             -text "HA Entity Name Prefix"
         add_de1_widget $page_name entry $col1_label_x $col1_y \
             {} \
@@ -539,12 +550,9 @@ namespace eval ::plugins::${plugin_name} {
         set model_name [de_model_name]
         if {$model_name ne ""} {
             dict set device_info model [list str $model_name]
-            dict set device_info name \
-                [list str "Decent Espresso $model_name"]
-        } else {
-            dict set device_info name {str "Decent Espresso DE1+"}
         }
 
+        dict set device_info name [list str $settings(ha_device_name)]
         dict set device_info manufacturer {str "Decent Espresso"}
         set app_version [package version de1app]
         if {[info exists ::settings(firmware_version_number)]} {
@@ -903,7 +911,7 @@ namespace eval ::plugins::${plugin_name} {
             ::plugins::mqtt::on_command
     }
 
-    proc populate_unique_id {} {
+    proc populate_initial_settings {} {
         variable settings
         set updated_settings 0
 
@@ -925,6 +933,17 @@ namespace eval ::plugins::${plugin_name} {
             set updated_settings 1
         }
 
+        # Set the device name
+        if {$settings(ha_device_name) eq ""} {
+            set model_name [de_model_name]
+            if {$model_name ne ""} {
+                set settings(ha_device_name) "Decent Espresso $model_name"
+            } else {
+                set settings(ha_device_name) "Decent Espresso DE1+"
+            }
+            set updated_settings 1
+        }
+
         if {$updated_settings} {
             save_plugin_settings mqtt
         }
@@ -937,7 +956,7 @@ namespace eval ::plugins::${plugin_name} {
         msg "Enabling MQTT plugin"
         plugins gui mqtt [build_settings_ui]
         borg onintent ::plugins::mqtt::on_intent
-        populate_unique_id
+        populate_initial_settings
 
         start_client
 

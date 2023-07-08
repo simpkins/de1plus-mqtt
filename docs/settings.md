@@ -85,6 +85,10 @@ settings UI dialog:
   provided by the plugin, without having to manually configure it in
   HomeAssistant.
 
+* HA Device Name
+
+  The device name to use for the machine in HomeAssistant.
+
 * HA Entity Name Prefix
 
   A string prefix to use for all of the HomeAssistant entity names in the
