@@ -376,8 +376,6 @@ namespace eval ::plugins::${plugin_name} {
             "hass:state-machine"
         publish_ha_sensor "Substate" "substate" "substate" {} {} {} \
             "hass:state-machine"
-        publish_ha_sensor "Profile" "profile" "profile" {} {} {} \
-            "hass:chart-bell-curve"
         publish_ha_sensor "Water Level" "water_level" "water_level_ml" \
             "volume_storage" "measurement" "mL" "hass:water"
         publish_ha_sensor "Head Temperature" "head_temp" "head_temperature" \
@@ -394,6 +392,8 @@ namespace eval ::plugins::${plugin_name} {
 
         # A switch to control the sleep/wake state
         publish_ha_switch
+
+        publish_ha_profile_select
     }
 
     proc publish_ha_sensor {
@@ -444,7 +444,6 @@ namespace eval ::plugins::${plugin_name} {
 
         set device_id $settings(unique_id)
         set unique_id "de1plus_${device_id}_switch"
-        set state_topic "$settings(topic_prefix)/state"
 
         set config [common_ha_entity_settings]
         dict set config name [list str "$settings(ha_entity_name_prefix)On"]
@@ -464,6 +463,54 @@ namespace eval ::plugins::${plugin_name} {
         set msg [dict2json $config]
         set topic "$settings(ha_discovery_prefix)/switch/${unique_id}/config"
         mqtt_client publish $topic $msg 1 1
+    }
+
+    proc publish_ha_profile_select {} {
+        variable settings
+
+        set device_id $settings(unique_id)
+        set unique_id "de1plus_${device_id}_profile_select"
+
+        set config [common_ha_entity_settings]
+        dict set config name \
+            [list str "$settings(ha_entity_name_prefix)Profile"]
+        dict set config unique_id [list str $unique_id]
+        dict set config command_topic \
+            [list str "$settings(topic_prefix)/command"]
+        dict set config command_template \
+            [list str "profile \{\{ value \}\}"]
+        dict set config state_topic [list str "$settings(topic_prefix)/state"]
+        dict set config value_template \
+            [list str "\{\{ value_json.profile \}\}"]
+        dict set config icon [list str "hass:chart-bell-curve"]
+
+        set profile_list [build_profile_list_json]
+        dict set config options [list list $profile_list]
+
+        # Publish the message
+        set msg [dict2json $config]
+        set topic "$settings(ha_discovery_prefix)/select/${unique_id}/config"
+        mqtt_client publish $topic $msg 1 1
+    }
+
+    proc build_profile_list_json {} {
+        set results {}
+
+        set profiles [get_profile_filenames]
+        foreach fn $profiles {
+            set full_fn "[homedir]/profiles/${fn}.tcl"
+            unset -nocomplain profile
+            catch {
+                array set profile \
+                [encoding convertfrom utf-8 [read_binary_file $full_fn]]
+            }
+            if {[info exists profile(profile_title)]} {
+                set encoded [encoding convertto utf-8 $profile(profile_title)]
+                lappend results [list str $encoded]
+            }
+        }
+
+        return $results
     }
 
     proc common_ha_entity_settings {} {
@@ -586,8 +633,9 @@ namespace eval ::plugins::${plugin_name} {
         } elseif {[string match {profile *} $data]} {
             # Set profile by title.  We have to search through the profile
             # files to find one with this title.
-            set profile_name \
+            set argument \
                 [string range $data [string length {profile }] end]
+            set profile_name [encoding convertfrom utf-8 $argument]
             set profiles [get_profile_filenames]
             foreach fn $profiles {
 		set full_fn "[homedir]/profiles/${fn}.tcl"
@@ -676,7 +724,7 @@ namespace eval ::plugins::${plugin_name} {
             dict set state state [list str $::de1_num_state($::de1(state))]
             dict set state substate \
                 [list str $::de1_substate_types($::de1(substate))]
-            dict set state profile [list str $::settings(profile_title)]
+            dict set state profile [list str $::settings(profile)]
             dict set state profile_filename \
                 [list str $::settings(profile_filename)]
             dict set state espresso_count [list num $::settings(espresso_count)]
@@ -706,6 +754,15 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc on_profile_change {args} {
+        variable settings
+
+        if {$settings(ha_auto_discovery_enable)} {
+            # Re-publish the profile select configuration any time the profile
+            # changes, just to help keep the list of available profiles
+            # up-to-date if someone has added or deleted profiles.
+            publish_ha_profile_select
+        }
+
         force_immediate_publish
     }
 
@@ -886,7 +943,7 @@ namespace eval ::plugins::${plugin_name} {
 
 	::de1::event::listener::on_all_state_change_add \
             ::plugins::mqtt::on_state_change
-        trace add variable ::settings(profile_filename) write \
+        trace add variable ::settings(profile) write \
             ::plugins::mqtt::on_profile_change
     }
 }
