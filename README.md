@@ -23,6 +23,13 @@ configuration.
 Currently it publishes configuration for 9 different sensors, as well as 1
 switch to allow remotely turning on or off the machine.
 
+## Installation
+
+To install, connect your Decent's tablet to a computer with a USB cable so you
+can transfer files to it.  Inside the `de1plus/plugins` directory on the
+tablet, create a folder named `mqtt` and copy both the `plugin.tcl` and
+`settings.tdb` files into this directory.
+
 ## Overriding Android Doze Mode
 
 By default, Android puts background applications to sleep, and prevents them
