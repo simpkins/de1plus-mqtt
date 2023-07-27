@@ -732,7 +732,8 @@ namespace eval ::plugins::${plugin_name} {
             dict set state state [list str $::de1_num_state($::de1(state))]
             dict set state substate \
                 [list str $::de1_substate_types($::de1(substate))]
-            dict set state profile [list str $::settings(profile)]
+            dict set state profile \
+                [list str [encoding convertto utf-8 $::settings(profile)]]
             dict set state profile_filename \
                 [list str $::settings(profile_filename)]
             dict set state espresso_count [list num $::settings(espresso_count)]
