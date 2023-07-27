@@ -628,8 +628,9 @@ namespace eval ::plugins::${plugin_name} {
             }
         } elseif {[string match {profile_filename *} $data]} {
             # Set profile by filename.
-            set profile_fn \
+            set argument \
                 [string range $data [string length {profile_filename }] end]
+            set profile_fn [encoding convertfrom utf-8 $argument]
             set full_fn "[homedir]/profiles/${profile_fn}.tcl"
             if {[file isfile $full_fn]} {
                 msg "setting profile to '$profile_fn'"
