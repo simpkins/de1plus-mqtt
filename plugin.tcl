@@ -337,7 +337,7 @@ namespace eval ::plugins::${plugin_name} {
         }
     }
 
-    proc on_conn_event {topic data retain} {
+    proc on_conn_event {topic data retain {properties {}}} {
         variable current_status
         # Republish our status each time we reconnect
         if {[dict get $data state] eq "connected"} {
@@ -976,10 +976,13 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc main {} {
-        package require mqtt
+        set mqtt_pkg_version [package require mqtt]
         package require tls
 
-        msg "Enabling MQTT plugin"
+        # Uncomment the following to enable logging from the mqtt package.
+        # ::mqtt::logpfx { msg "mqtt==>" }
+
+        msg "Enabling MQTT plugin: using Tcl mqtt $mqtt_pkg_version"
         populate_initial_settings
         plugins gui mqtt [build_settings_ui]
         borg onintent ::plugins::mqtt::on_intent
