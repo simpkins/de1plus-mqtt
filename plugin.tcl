@@ -735,9 +735,11 @@ namespace eval ::plugins::${plugin_name} {
                 [list str $::de1_substate_types($::de1(substate))]
             dict set state profile \
                 [list str [encoding convertto utf-8 $::settings(profile)]]
-            dict set state profile_filename \
-                [list str \
-                [encoding convertto utf-8 $::settings(profile_filename)]]
+            if [info exists ::settings(profile_filename)] {
+                dict set state profile_filename \
+                    [list str \
+                    [encoding convertto utf-8 $::settings(profile_filename)]]
+            }
             dict set state espresso_count [list num $::settings(espresso_count)]
             dict set state steaming_count [list num $::settings(steaming_count)]
             dict set state head_temperature [list num $::de1(head_temperature)]
