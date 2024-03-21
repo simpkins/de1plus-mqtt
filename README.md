@@ -27,8 +27,8 @@ switch to allow remotely turning on or off the machine.
 
 To install, connect your Decent's tablet to a computer with a USB cable so you
 can transfer files to it.  Inside the `de1plus/plugins` directory on the
-tablet, create a folder named `mqtt` and copy both the `plugin.tcl` and
-`settings.tdb` files into this directory.
+tablet, create a folder named `mqtt` and copy the `plugin.tcl` file into this
+directory.
 
 ## Overriding Android Doze Mode
 

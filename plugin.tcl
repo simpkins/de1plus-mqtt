@@ -921,23 +921,17 @@ namespace eval ::plugins::${plugin_name} {
         # We generate a unique ID to avoid conflicts if there are multiple
         # DE1+ devices.  On first start-up this value is generally empty, so we
         # pick a new value then save it to the settings.
-        if {$settings(unique_id) eq ""} {
+        if {
+            ! [info exists settings(unique_id)] || $settings(unique_id) == ""
+        } {
             set rand_id [expr int(0xffffffff * rand())]
             set unique_id [format "%08x" $rand_id]
             set settings(unique_id) $unique_id
             set updated_settings 1
         }
-        if {$settings(topic_prefix) eq ""} {
-            set settings(topic_prefix) "de1plus/$settings(unique_id)"
-            set updated_settings 1
-        }
-        if {$settings(client_id) eq ""} {
-            set settings(client_id) "de1plus_$settings(unique_id)"
-            set updated_settings 1
-        }
 
-        # Set the device name
-        if {$settings(ha_device_name) eq ""} {
+        # Set the device name based on the model name
+        if {! [info exists settings(ha_device_name)]} {
             set model_name [de_model_name]
             if {$model_name ne ""} {
                 set settings(ha_device_name) "Decent Espresso $model_name"
@@ -945,6 +939,33 @@ namespace eval ::plugins::${plugin_name} {
                 set settings(ha_device_name) "Decent Espresso DE1+"
             }
             set updated_settings 1
+        }
+
+        # Default values for other settings
+        array set defaults {
+            host {}
+            port 8883
+            user {}
+            password {}
+            unique_id {}
+            publish_interval_ms 60000
+            retransmit_ms 5000
+            enable_tls 1
+            ca_file {}
+            client_cert {}
+            client_key {}
+            ha_auto_discovery_enable 0
+            ha_entity_name_prefix {DE1+ }
+            ha_discovery_prefix {homeassistant}
+        }
+        set defaults(topic_prefix) "de1plus/$settings(unique_id)"
+        set defaults(client_id) "de1plus_$settings(unique_id)"
+
+        foreach {name default_value} [array get defaults] {
+            if {! [info exists settings($name)]} {
+                set settings($name) $default_value
+                set updated_settings 1
+            }
         }
 
         if {$updated_settings} {
@@ -957,9 +978,9 @@ namespace eval ::plugins::${plugin_name} {
         package require tls
 
         msg "Enabling MQTT plugin"
+        populate_initial_settings
         plugins gui mqtt [build_settings_ui]
         borg onintent ::plugins::mqtt::on_intent
-        populate_initial_settings
 
         start_client
 
