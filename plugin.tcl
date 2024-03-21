@@ -13,6 +13,7 @@ namespace eval ::plugins::${plugin_name} {
     variable current_status "Not connected"
     variable client_started 0
     variable publish_timer_id {}
+    variable supports_mqtt5 0
 
     proc build_settings_ui {}  {
         build_settings_page1
@@ -81,6 +82,7 @@ namespace eval ::plugins::${plugin_name} {
 
     proc build_settings_page1 {}  {
         variable settings
+        variable supports_mqtt5
 
         set page_name "plugin_mqtt_settings1"
         common_page_setup $page_name "Page 2" plugin_mqtt_settings2
@@ -168,6 +170,36 @@ namespace eval ::plugins::${plugin_name} {
             -borderwidth 1 -bg #fbfaff  -foreground #4e85f4 \
             -textvariable ::plugins::mqtt::settings(topic_prefix) \
             -relief flat  -highlightthickness 1 -highlightcolor #000000 
+        set col1_y [expr $col1_y + $y_spacing]
+
+        add_de1_text $page_name $col1_x $col1_y -font Helv_10_bold \
+            -width $label_width -anchor "e" -justify "right" \
+            -text "MQTT Version"
+        add_de1_widget $page_name radiobutton $col1_label_x $col1_y \
+            {} \
+            -font Helv_8 -width 5 -canvas_anchor "w" -anchor "w" \
+            -borderwidth 0 -bg #ffffff  -foreground #4e85f4 \
+            -text "3.1" -value 3 \
+            -variable ::plugins::mqtt::settings(mqtt_protocol) \
+            -relief flat  -highlightthickness 0 -highlightcolor #000000 
+        add_de1_widget $page_name radiobutton \
+            [expr $col1_label_x + 200] $col1_y \
+            {} \
+            -font Helv_8 -width 5 -canvas_anchor "w" -anchor "w" \
+            -borderwidth 0 -bg #ffffff  -foreground #4e85f4 \
+            -text "3.1.1" -value 4 \
+            -variable ::plugins::mqtt::settings(mqtt_protocol) \
+            -relief flat  -highlightthickness 0 -highlightcolor #000000 
+        if $supports_mqtt5 {
+            add_de1_widget $page_name radiobutton \
+                [expr $col1_label_x + 400] $col1_y \
+                {} \
+                -font Helv_8 -width 5 -canvas_anchor "w" -anchor "w" \
+                -borderwidth 0 -bg #ffffff  -foreground #4e85f4 \
+                -text "5" -value 5 \
+                -variable ::plugins::mqtt::settings(mqtt_protocol) \
+                -relief flat  -highlightthickness 0 -highlightcolor #000000 
+        }
         set col1_y [expr $col1_y + $y_spacing]
 
         #
@@ -902,7 +934,8 @@ namespace eval ::plugins::${plugin_name} {
         mqtt create mqtt_client \
             -username $settings(user) -password $settings(password) \
             -keepalive $keepalive_sec -retransmit $settings(retransmit_ms) \
-           -socketcmd ::plugins::mqtt::create_socket
+            -protocol $settings(mqtt_protocol) \
+            -socketcmd ::plugins::mqtt::create_socket
         set client_started 1
         mqtt_client will "$settings(topic_prefix)/state" $dead_state 1 1
         msg "Connecting to MQTT broker $settings(host):$settings(port) " \
@@ -918,6 +951,7 @@ namespace eval ::plugins::${plugin_name} {
 
     proc populate_initial_settings {} {
         variable settings
+        variable supports_mqtt5
         set updated_settings 0
 
         # We generate a unique ID to avoid conflicts if there are multiple
@@ -962,6 +996,11 @@ namespace eval ::plugins::${plugin_name} {
         }
         set defaults(topic_prefix) "de1plus/$settings(unique_id)"
         set defaults(client_id) "de1plus_$settings(unique_id)"
+        if $supports_mqtt5 {
+            set defaults(mqtt_protocol) 5
+        } else {
+            set defaults(mqtt_protocol) 4
+        }
 
         foreach {name default_value} [array get defaults] {
             if {! [info exists settings($name)]} {
@@ -976,6 +1015,8 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc main {} {
+        variable supports_mqtt5
+
         set mqtt_pkg_version [package require mqtt]
         package require tls
 
@@ -983,6 +1024,10 @@ namespace eval ::plugins::${plugin_name} {
         # ::mqtt::logpfx { msg "mqtt==>" }
 
         msg "Enabling MQTT plugin: using Tcl mqtt $mqtt_pkg_version"
+        # Set supports_mqtt5 to true if we are have mqtt package version 3.0
+        # or higher
+        set supports_mqtt5 [expr [package vcompare $mqtt_pkg_version 3.0] >= 0]
+
         populate_initial_settings
         plugins gui mqtt [build_settings_ui]
         borg onintent ::plugins::mqtt::on_intent
