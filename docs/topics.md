@@ -63,6 +63,17 @@ contains a JSON dictionary, which will contain the following fields:
 
   Float.  The steam heater temperature, in degrees Celsius.
 
+* `steam_mode`
+
+  String.  Reports the state of the steam heater as "On", "Off", or "Eco".
+  (Eco mode is a setting that can be enabled on page 3 of the Machine
+  Calibration settings.  This lowers the steam heater temperature after the
+  machine has been idle for 10 minutes.)
+
+* `steam_state`
+
+  Boolean.  Reports whether the steam heater is on or off.
+
 * `water_level_mm`
 
   Float.  The water level in the water tank, in millimeters.
@@ -91,6 +102,16 @@ Currently the following are supported:
 * `sleep`
 
   Puts the machine to sleep, if it is not actively pouring.
+
+* `steam_on`
+
+  Turns on the steam heater.  This wakes the machine first, if necessary.
+  If the heater was running in Eco mode, this resets it to full temperature and
+  resets the Eco mode idle timer.
+
+* `steam_off`
+
+  Turns off the steam heater.
 
 * `profile PROFILE`
 

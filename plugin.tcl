@@ -447,8 +447,21 @@ namespace eval ::plugins::${plugin_name} {
         send_ha_sensor $publish "Steaming Count" "steaming_count" \
             "steaming_count" {} "total_increasing" {} "hass:sprinkler"
 
-        # A switch to control the sleep/wake state
-        send_ha_switch $publish
+        # Only bother publishing the "Steam Mode" sensor if eco mode is
+        # enabled.  For users that don't use eco mode (which is probably most
+        # users), having this extra entity in addition to the simple Steam On
+        # boolean will probably just be confusing
+	if {$::settings(eco_steam) || ! $publish} {
+            send_ha_sensor $publish "Steam Mode" "steam_mode" "steam_mode" \
+                {} {} {} "hass:heat-wave"
+        }
+
+        # Switches
+        send_ha_switch $publish "On" "switch" "wake_state" \
+            "wake" "sleep" "hass:coffee-maker"
+        send_ha_switch $publish "Steam On" "steam_switch" "steam_state" \
+            "steam_on" "steam_off" "hass:heat-wave"
+
 
         send_ha_profile_select $publish
     }
@@ -503,29 +516,39 @@ namespace eval ::plugins::${plugin_name} {
         }
     }
 
-    proc send_ha_switch {publish} {
+    proc send_ha_switch {
+        publish
+        name
+        entity_name
+        field
+        on_command
+        off_command
+        {icon {}}
+    } {
         variable settings
 
         set device_id $settings(unique_id)
-        set unique_id "de1plus_${device_id}_switch"
+        set unique_id "de1plus_${device_id}_${entity_name}"
         set topic "$settings(ha_discovery_prefix)/switch/${unique_id}/config"
 
         if {$publish} {
             set config [common_ha_entity_settings]
             dict set config name \
-                [list str "$settings(ha_entity_name_prefix)On"]
+                [list str "$settings(ha_entity_name_prefix)$name"]
             dict set config unique_id [list str $unique_id]
-            dict set config icon [list str "hass:coffee-maker"]
             dict set config state_topic \
                 [list str "$settings(topic_prefix)/state"]
             dict set config state_on {bool 1}
             dict set config state_off {bool 0}
             dict set config value_template \
-                [list str "\{\{ value_json.wake_state \}\}"]
+                [list str "\{\{ value_json.$field \}\}"]
             dict set config command_topic \
                 [list str "$settings(topic_prefix)/command"]
-            dict set config payload_on {str "wake"}
-            dict set config payload_off {str "sleep"}
+            dict set config payload_on [list str $on_command]
+            dict set config payload_off [list str $off_command]
+            if {$icon ne ""} {
+                dict set config icon [list str $icon]
+            }
 
             # Publish the message
             set msg [dict2json $config]
@@ -667,22 +690,7 @@ namespace eval ::plugins::${plugin_name} {
 
     proc process_command {topic data retain} {
         if {$data eq "wake"} {
-            set current_state $::de1_num_state($::de1(state))
-            if {$current_state == "Sleep" || \
-                $current_state == "GoingToSleep"} {
-                msg "wake: waking up"
-                start_idle
-
-                # Use `borg alarm wakeup` to attempt to turn on the tablet
-                # display.  We send this to the "self" component, which
-                # will invoke our on_intent callback.  This seems to work
-                # to turn the display on in my limited testing, but I'm not
-                # sure if it's 100% reliable.
-                borg alarm wakeup 1 0 "action.wakeup" \
-                    {} {} {} "self"
-            } else {
-                msg "wake: already awake"
-            }
+            wake_if_needed "wake"
         } elseif {$data eq "sleep"} {
             set current_state $::de1_num_state($::de1(state))
             if {$current_state == "Idle"} {
@@ -693,6 +701,27 @@ namespace eval ::plugins::${plugin_name} {
                 msg "sleep: already sleeping"
             } else {
                 msg "sleep: machine in use ($current_state); not sleeping"
+            }
+        } elseif {$data eq "steam_on"} {
+            wake_if_needed "steam_on"
+            if {$::settings(steam_disabled) || $::de1(in_eco_steam_mode)} {
+                msg "steam_on: turning steam on"
+                set ::de1(in_eco_steam_mode) 0
+                set ::settings(steam_disabled) 0
+                set ::de1(steam_disable_toggle) 1
+                reset_eco_steam_timer
+                de1_send_steam_hotwater_settings
+            } else {
+                msg "steam_on: steam already on"
+            }
+        } elseif {$data eq "steam_off"} {
+            if {! $::settings(steam_disabled)} {
+                msg "steam_off: turning steam off"
+                set ::settings(steam_disabled) 1
+                set ::de1(steam_disable_toggle) 0
+                de1_send_steam_hotwater_settings
+            } else {
+                msg "steam_off: steam already off"
             }
         } elseif {[string match {profile_filename *} $data]} {
             # Set profile by filename.
@@ -733,6 +762,36 @@ namespace eval ::plugins::${plugin_name} {
                 "title \"$profile_name\""
         } else {
             msg "unknown MQTT command: $data"
+        }
+    }
+
+    proc wake_if_needed {cmd} {
+        set current_state $::de1_num_state($::de1(state))
+        if {$current_state == "Sleep" || \
+            $current_state == "GoingToSleep"} {
+            msg "$cmd: waking up"
+            start_idle
+
+            # Use `borg alarm wakeup` to attempt to turn on the tablet
+            # display.  We send this to the "self" component, which
+            # will invoke our on_intent callback.  This seems to work
+            # to turn the display on in my limited testing, but I'm not
+            # sure if it's 100% reliable.
+            borg alarm wakeup 1 0 "action.wakeup" \
+                {} {} {} "self"
+        } else {
+            msg "$cmd: already awake"
+        }
+    }
+
+    proc reset_eco_steam_timer {} {
+        # We just use delay_screen_saver to do this for now.
+        # This resets both the eco steam timer and the screen saver timer.
+        # It would be nicer if we had a method to reset just the eco steam
+        # timer without affecting the screen saver timer, but it doesn't seem
+        # like that big of a deal to reset the screen saver timer for now too.
+	if {$::settings(eco_steam)} {
+            delay_screen_saver
         }
     }
 
@@ -797,7 +856,9 @@ namespace eval ::plugins::${plugin_name} {
             dict set state de1_connected {bool true}
             dict set state scale_connected \
                 [list bool [expr {$::de1(scale_device_handle) != 0}]]
-            dict set state state [list str $::de1_num_state($::de1(state))]
+            dict set state state \
+                [list str \
+                [encoding convertto utf-8 $::de1_num_state($::de1(state))]]
             dict set state substate \
                 [list str $::de1_substate_types($::de1(substate))]
             dict set state profile \
@@ -820,8 +881,25 @@ namespace eval ::plugins::${plugin_name} {
             # The wake_state reports if the DE1 is currently asleep or awake.
             # Providing this as a boolean makes it easier to integrate as a
             # switch in home assistant.
-            dict set state wake_state \
-                [list bool [expr {$::de1_num_state($::de1(state)) ne "Sleep"}]]
+            set is_awake [expr {$::de1_num_state($::de1(state)) ne "Sleep"}]
+            dict set state wake_state [list bool $is_awake]
+
+            # Report the steam mode / state.
+            if {! $is_awake} {
+                set steam_mode "Off"
+                set steam_state 0
+            } elseif {$::settings(steam_disabled)} {
+                set steam_mode "Off"
+                set steam_state 0
+            } elseif {$::de1(in_eco_steam_mode)} {
+                set steam_mode "Eco"
+                set steam_state 1
+            } else {
+                set steam_mode "On"
+                set steam_state 1
+            }
+            dict set state steam_mode [list str $steam_mode]
+            dict set state steam_state [list bool $steam_state]
         }
 
         set json_state [::plugins::mqtt::dict2json $state]
@@ -831,6 +909,23 @@ namespace eval ::plugins::${plugin_name} {
 
     proc on_state_change {event_dict} {
         force_immediate_publish
+    }
+
+    proc on_steam_state_change {args} {
+        force_immediate_publish
+    }
+
+    proc on_steam_eco_setting_change {args} {
+        variable settings
+
+        # We only publish the steam_mode sensor when eco_steam is enabled,
+        # so re-publish the HA sensors whenever it is turned on, in case we
+        # never published it before.
+        if {$settings(ha_auto_discovery_enable) && $::settings(eco_steam)} {
+            # For simplicity just republish all sensors, rather than
+            # adding a separate method for just this one sensor.
+            publish_ha_discovery_messages
+        }
     }
 
     proc on_profile_change {args} {
@@ -1084,5 +1179,11 @@ namespace eval ::plugins::${plugin_name} {
             ::plugins::mqtt::on_state_change
         trace add variable ::settings(profile) write \
             ::plugins::mqtt::on_profile_change
+        trace add variable ::settings(steam_disabled) write \
+            ::plugins::mqtt::on_steam_state_change
+        trace add variable ::de1(in_eco_steam_mode) write \
+            ::plugins::mqtt::on_steam_state_change
+        trace add variable ::settings(eco_steam) write \
+            ::plugins::mqtt::on_steam_eco_setting_change
     }
 }
