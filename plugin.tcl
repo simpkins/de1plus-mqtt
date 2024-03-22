@@ -14,6 +14,7 @@ namespace eval ::plugins::${plugin_name} {
     variable client_started 0
     variable publish_timer_id {}
     variable supports_mqtt5 0
+    variable published_ha_auto_discovery 0
 
     proc build_settings_ui {}  {
         build_settings_page1
@@ -412,11 +413,17 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc publish_ha_discovery_messages {} {
+        variable published_ha_auto_discovery
+
         send_ha_discovery_messages 1
+        set published_ha_auto_discovery 1
     }
 
     proc retract_ha_discovery_messages {} {
+        variable published_ha_auto_discovery
+
         send_ha_discovery_messages 0
+        set published_ha_auto_discovery 0
     }
 
     proc send_ha_discovery_messages {publish} {
@@ -491,9 +498,8 @@ namespace eval ::plugins::${plugin_name} {
 
             mqtt_client publish $topic $msg 1 1
         } else {
-            # Retract the information by publishing an empty message with the
-            # retain flag cleared.
-            mqtt_client publish $topic {} 1 0
+            # Retract the retained information by publishing an empty message
+            mqtt_client publish $topic {} 1 1
         }
     }
 
@@ -526,7 +532,7 @@ namespace eval ::plugins::${plugin_name} {
             mqtt_client publish $topic $msg 1 1
         } else {
             # Retract the message
-            mqtt_client publish $topic {} 1 0
+            mqtt_client publish $topic {} 1 1
         }
     }
 
@@ -562,7 +568,7 @@ namespace eval ::plugins::${plugin_name} {
             set msg [dict2json $config]
             mqtt_client publish $topic $msg 1 1
         } else {
-            mqtt_client publish $topic {} 1 0
+            mqtt_client publish $topic {} 1 1
         }
     }
 
@@ -903,12 +909,23 @@ namespace eval ::plugins::${plugin_name} {
         variable client_started
         variable publish_timer_id
         variable settings
+        variable published_ha_auto_discovery
 
         save_plugin_settings mqtt
 
         after cancel $publish_timer_id
         set publish_timer_id {}
         if {$client_started != 0} {
+            # If HA auto-discover was previously enabled and is now disabled,
+            # retract our auto-discovery messages
+            if {
+                $published_ha_auto_discovery &&
+                $settings(ha_auto_discovery_enable) == 0
+            } {
+                msg "retracting HA auto-discovery topics"
+                retract_ha_discovery_messages
+            }
+
             msg "closing existing MQTT client"
             # Calling "mqtt_client destroy" will gracefully disconnect the
             # client, which means our last will message will not be processed
