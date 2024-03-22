@@ -451,7 +451,7 @@ namespace eval ::plugins::${plugin_name} {
         # enabled.  For users that don't use eco mode (which is probably most
         # users), having this extra entity in addition to the simple Steam On
         # boolean will probably just be confusing
-	if {$::settings(eco_steam) || ! $publish} {
+	if {[is_eco_steam_enabled] || ! $publish} {
             send_ha_sensor $publish "Steam Mode" "steam_mode" "steam_mode" \
                 {} {} {} "hass:heat-wave"
         }
@@ -704,7 +704,7 @@ namespace eval ::plugins::${plugin_name} {
             }
         } elseif {$data eq "steam_on"} {
             wake_if_needed "steam_on"
-            if {$::settings(steam_disabled) || $::de1(in_eco_steam_mode)} {
+            if {$::settings(steam_disabled) || [is_eco_steam_on]} {
                 msg "steam_on: turning steam on"
                 set ::de1(in_eco_steam_mode) 0
                 set ::settings(steam_disabled) 0
@@ -790,7 +790,7 @@ namespace eval ::plugins::${plugin_name} {
         # It would be nicer if we had a method to reset just the eco steam
         # timer without affecting the screen saver timer, but it doesn't seem
         # like that big of a deal to reset the screen saver timer for now too.
-	if {$::settings(eco_steam)} {
+	if {[is_eco_steam_enabled]} {
             delay_screen_saver
         }
     }
@@ -891,7 +891,7 @@ namespace eval ::plugins::${plugin_name} {
             } elseif {$::settings(steam_disabled)} {
                 set steam_mode "Off"
                 set steam_state 0
-            } elseif {$::de1(in_eco_steam_mode)} {
+            } elseif {[is_eco_steam_on]} {
                 set steam_mode "Eco"
                 set steam_state 1
             } else {
@@ -1153,6 +1153,22 @@ namespace eval ::plugins::${plugin_name} {
         if {$updated_settings} {
             save_plugin_settings mqtt
         }
+    }
+
+    proc is_eco_steam_enabled {} {
+        # Provide compatibility with older versions of the de1plus
+        # app which do not have the eco_steam setting.
+        if {! [info exists ::settings(eco_steam)]} {
+            return 0
+        }
+        return $::settings(eco_steam)
+    }
+
+    proc is_eco_steam_on {} {
+        if {! [info exists ::de(in_eco_steam_mode)]} {
+            return 0
+        }
+        return ::de1(in_eco_steam_mode)
     }
 
     proc main {} {
