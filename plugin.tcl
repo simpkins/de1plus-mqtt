@@ -190,7 +190,7 @@ namespace eval ::plugins::${plugin_name} {
             -text "3.1.1" -value 4 \
             -variable ::plugins::mqtt::settings(mqtt_protocol) \
             -relief flat  -highlightthickness 0 -highlightcolor #000000 
-        if $supports_mqtt5 {
+        if {$supports_mqtt5} {
             add_de1_widget $page_name radiobutton \
                 [expr $col1_label_x + 400] $col1_y \
                 {} \
@@ -412,34 +412,42 @@ namespace eval ::plugins::${plugin_name} {
     }
 
     proc publish_ha_discovery_messages {} {
+        send_ha_discovery_messages 1
+    }
+
+    proc retract_ha_discovery_messages {} {
+        send_ha_discovery_messages 0
+    }
+
+    proc send_ha_discovery_messages {publish} {
         msg "sending HomeAssistant discovery messages"
 
         # Sensors
-        publish_ha_sensor "State" "state" "state" {} {} {} \
+        send_ha_sensor $publish "State" "state" "state" {} {} {} \
             "hass:state-machine"
-        publish_ha_sensor "Substate" "substate" "substate" {} {} {} \
+        send_ha_sensor $publish "Substate" "substate" "substate" {} {} {} \
             "hass:state-machine"
-        publish_ha_sensor "Water Level" "water_level" "water_level_ml" \
+        send_ha_sensor $publish "Water Level" "water_level" "water_level_ml" \
             "volume_storage" "measurement" "mL" "hass:water"
-        publish_ha_sensor "Head Temperature" "head_temp" "head_temperature" \
-            "temperature" "measurement" "\xc2\xb0C"
-        publish_ha_sensor "Mix Temperature" "mix_temp" "mix_temperature" \
-            "temperature" "measurement" "\xc2\xb0C"
-        publish_ha_sensor "Steam Temperature" "steam_temp" \
-            "steam_heater_temperature" \
-            "temperature" "measurement" "\xc2\xb0C"
-        publish_ha_sensor "Espresso Count" "espresso_count" "espresso_count" \
-            {} "total_increasing" {} "hass:coffee"
-        publish_ha_sensor "Steaming Count" "steaming_count" "steaming_count" \
-            {} "total_increasing" {} "hass:sprinkler"
+        send_ha_sensor $publish "Head Temperature" "head_temp" \
+            "head_temperature" "temperature" "measurement" "\xc2\xb0C"
+        send_ha_sensor $publish "Mix Temperature" "mix_temp" \
+            "mix_temperature" "temperature" "measurement" "\xc2\xb0C"
+        send_ha_sensor $publish "Steam Temperature" "steam_temp" \
+            "steam_heater_temperature" "temperature" "measurement" "\xc2\xb0C"
+        send_ha_sensor $publish "Espresso Count" "espresso_count" \
+            "espresso_count" {} "total_increasing" {} "hass:coffee"
+        send_ha_sensor $publish "Steaming Count" "steaming_count" \
+            "steaming_count" {} "total_increasing" {} "hass:sprinkler"
 
         # A switch to control the sleep/wake state
-        publish_ha_switch
+        send_ha_switch $publish
 
-        publish_ha_profile_select
+        send_ha_profile_select $publish
     }
 
-    proc publish_ha_sensor {
+    proc send_ha_sensor {
+        publish
         name
         entity_name
         field
@@ -452,88 +460,110 @@ namespace eval ::plugins::${plugin_name} {
 
         set device_id $settings(unique_id)
         set unique_id "de1plus_${device_id}_${entity_name}"
-        set state_topic "$settings(topic_prefix)/state"
-
-        # Build the config dict
-
-        set config [common_ha_entity_settings]
-        dict set config name [list str "$settings(ha_entity_name_prefix)$name"]
-        dict set config unique_id [list str $unique_id]
-        dict set config state_topic [list str $state_topic]
-        dict set config value_template \
-            [list str "\{\{ value_json.$field \}\}"]
-
-        if {$device_class ne ""} {
-            dict set config device_class [list str $device_class]
-        }
-        if {$state_class ne ""} {
-            dict set config state_class [list str $state_class]
-        }
-        if {$unit_of_measurement ne ""} {
-            dict set config unit_of_measurement [list str $unit_of_measurement]
-        }
-        if {$icon ne ""} {
-            dict set config icon [list str $icon]
-        }
-
-        # Publish the message
-        set msg [dict2json $config]
         set topic "$settings(ha_discovery_prefix)/sensor/${unique_id}/config"
-        mqtt_client publish $topic $msg 1 1
+
+        if {$publish} {
+            # Build the config dict
+            set config [common_ha_entity_settings]
+            dict set config name \
+                [list str "$settings(ha_entity_name_prefix)$name"]
+            dict set config unique_id [list str $unique_id]
+            set state_topic "$settings(topic_prefix)/state"
+            dict set config state_topic [list str $state_topic]
+            dict set config value_template \
+                [list str "\{\{ value_json.$field \}\}"]
+
+            if {$device_class ne ""} {
+                dict set config device_class [list str $device_class]
+            }
+            if {$state_class ne ""} {
+                dict set config state_class [list str $state_class]
+            }
+            if {$unit_of_measurement ne ""} {
+                dict set config unit_of_measurement \
+                    [list str $unit_of_measurement]
+            }
+            if {$icon ne ""} {
+                dict set config icon [list str $icon]
+            }
+
+            set msg [dict2json $config]
+
+            mqtt_client publish $topic $msg 1 1
+        } else {
+            # Retract the information by publishing an empty message with the
+            # retain flag cleared.
+            mqtt_client publish $topic {} 1 0
+        }
     }
 
-    proc publish_ha_switch {} {
+    proc send_ha_switch {publish} {
         variable settings
 
         set device_id $settings(unique_id)
         set unique_id "de1plus_${device_id}_switch"
-
-        set config [common_ha_entity_settings]
-        dict set config name [list str "$settings(ha_entity_name_prefix)On"]
-        dict set config unique_id [list str $unique_id]
-        dict set config icon [list str "hass:coffee-maker"]
-        dict set config state_topic [list str "$settings(topic_prefix)/state"]
-        dict set config state_on {bool 1}
-        dict set config state_off {bool 0}
-        dict set config value_template \
-            [list str "\{\{ value_json.wake_state \}\}"]
-        dict set config command_topic \
-            [list str "$settings(topic_prefix)/command"]
-        dict set config payload_on {str "wake"}
-        dict set config payload_off {str "sleep"}
-
-        # Publish the message
-        set msg [dict2json $config]
         set topic "$settings(ha_discovery_prefix)/switch/${unique_id}/config"
-        mqtt_client publish $topic $msg 1 1
+
+        if {$publish} {
+            set config [common_ha_entity_settings]
+            dict set config name \
+                [list str "$settings(ha_entity_name_prefix)On"]
+            dict set config unique_id [list str $unique_id]
+            dict set config icon [list str "hass:coffee-maker"]
+            dict set config state_topic \
+                [list str "$settings(topic_prefix)/state"]
+            dict set config state_on {bool 1}
+            dict set config state_off {bool 0}
+            dict set config value_template \
+                [list str "\{\{ value_json.wake_state \}\}"]
+            dict set config command_topic \
+                [list str "$settings(topic_prefix)/command"]
+            dict set config payload_on {str "wake"}
+            dict set config payload_off {str "sleep"}
+
+            # Publish the message
+            set msg [dict2json $config]
+            mqtt_client publish $topic $msg 1 1
+        } else {
+            # Retract the message
+            mqtt_client publish $topic {} 1 0
+        }
     }
 
     proc publish_ha_profile_select {} {
+        send_ha_profile_select 1
+    }
+
+    proc send_ha_profile_select {publish} {
         variable settings
 
         set device_id $settings(unique_id)
         set unique_id "de1plus_${device_id}_profile_select"
-
-        set config [common_ha_entity_settings]
-        dict set config name \
-            [list str "$settings(ha_entity_name_prefix)Profile"]
-        dict set config unique_id [list str $unique_id]
-        dict set config command_topic \
-            [list str "$settings(topic_prefix)/command"]
-        dict set config command_template \
-            [list str "profile \{\{ value \}\}"]
-        dict set config state_topic [list str "$settings(topic_prefix)/state"]
-        dict set config value_template \
-            [list str "\{\{ value_json.profile \}\}"]
-        dict set config icon [list str "hass:chart-bell-curve"]
-
-        set profile_list [build_profile_list_json]
-        dict set config options [list list $profile_list]
-
-        # Publish the message
-        set msg [dict2json $config]
         set topic "$settings(ha_discovery_prefix)/select/${unique_id}/config"
-        mqtt_client publish $topic $msg 1 1
+
+        if {$publish} {
+            set config [common_ha_entity_settings]
+            dict set config name \
+                [list str "$settings(ha_entity_name_prefix)Profile"]
+            dict set config unique_id [list str $unique_id]
+            dict set config command_topic \
+                [list str "$settings(topic_prefix)/command"]
+            dict set config command_template \
+                [list str "profile \{\{ value \}\}"]
+            dict set config state_topic [list str "$settings(topic_prefix)/state"]
+            dict set config value_template \
+                [list str "\{\{ value_json.profile \}\}"]
+            dict set config icon [list str "hass:chart-bell-curve"]
+
+            set profile_list [build_profile_list_json]
+            dict set config options [list list $profile_list]
+
+            # Publish the message
+            set msg [dict2json $config]
+            mqtt_client publish $topic $msg 1 1
+        } else {
+            mqtt_client publish $topic {} 1 0
+        }
     }
 
     proc build_profile_list_json {} {
@@ -750,7 +780,6 @@ namespace eval ::plugins::${plugin_name} {
 
     proc publish_state {} {
         variable settings
-        variable mqtt_client
 
         set state ""
         dict set state online {bool true}
@@ -996,7 +1025,7 @@ namespace eval ::plugins::${plugin_name} {
         }
         set defaults(topic_prefix) "de1plus/$settings(unique_id)"
         set defaults(client_id) "de1plus_$settings(unique_id)"
-        if $supports_mqtt5 {
+        if {$supports_mqtt5} {
             set defaults(mqtt_protocol) 5
         } else {
             set defaults(mqtt_protocol) 4
