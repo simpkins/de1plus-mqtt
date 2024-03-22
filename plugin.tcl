@@ -56,7 +56,7 @@ namespace eval ::plugins::${plugin_name} {
 
         # Button to go to the other page
         set other_page_cmd [string cat \
-            "say [translate $next_page_name];" \
+            "say {[translate $next_page_name]} $::settings(sound_button_in);" \
             "page_to_show_when_off $next_page_id" \
         ]
 	dui add dbutton $page_name 1680 1250 2180 1370 \
