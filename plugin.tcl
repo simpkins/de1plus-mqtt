@@ -452,15 +452,15 @@ namespace eval ::plugins::${plugin_name} {
         # users), having this extra entity in addition to the simple Steam On
         # boolean will probably just be confusing
 	if {[is_eco_steam_enabled] || ! $publish} {
-            send_ha_sensor $publish "Steam Mode" "steam_mode" "steam_mode" \
-                {} {} {} "hass:heat-wave"
+            send_ha_sensor $publish "Steam Heater Mode" "steam_mode" \
+                "steam_mode" {} {} {} "hass:heat-wave"
         }
 
         # Switches
         send_ha_switch $publish "On" "switch" "wake_state" \
             "wake" "sleep" "hass:coffee-maker"
-        send_ha_switch $publish "Steam On" "steam_switch" "steam_state" \
-            "steam_on" "steam_off" "hass:heat-wave"
+        send_ha_switch $publish "Steam Heater On" "steam_switch" \
+            "steam_state" "steam_on" "steam_off" "hass:heat-wave"
 
 
         send_ha_profile_select $publish
