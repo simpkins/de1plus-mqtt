@@ -491,7 +491,7 @@ namespace eval ::plugins::${plugin_name} {
             set state_topic "$settings(topic_prefix)/state"
             dict set config state_topic [list str $state_topic]
             dict set config value_template \
-                [list str "\{\{ value_json.$field \}\}"]
+                [list str "\{\{ value_json.$field | default(None) \}\}"]
 
             if {$device_class ne ""} {
                 dict set config device_class [list str $device_class]
