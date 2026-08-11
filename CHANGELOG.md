@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.4
+
+- Switch code to use `[data_directory]` instead of `[homedir]` in order
+  to support iOS
+- Fix warnings in Home Assistant log when tablet is running but not
+  connected to DE1
+
 ## Version 1.3
 
 - Added support for controlling the steam heater state
@@ -8,7 +15,7 @@
 
 ## Version 1.2
 
-- Fixed a bug preventing Home Assstant auto-discovery from working on tablets
+- Fixed a bug preventing Home Assistant auto-discovery from working on tablets
   running newer versions of Androwish.
 - Updated the code to automatically populate the settings with default values
   if any plugin settings are missing, removing the need to install the
