@@ -600,7 +600,7 @@ namespace eval ::plugins::${plugin_name} {
 
         set profiles [get_profile_filenames]
         foreach fn $profiles {
-            set full_fn "[homedir]/profiles/${fn}.tcl"
+            set full_fn "[data_directory]/profiles/${fn}.tcl"
             unset -nocomplain profile
             catch {
                 array set profile \
@@ -728,7 +728,7 @@ namespace eval ::plugins::${plugin_name} {
             set argument \
                 [string range $data [string length {profile_filename }] end]
             set profile_fn [encoding convertfrom utf-8 $argument]
-            set full_fn "[homedir]/profiles/${profile_fn}.tcl"
+            set full_fn "[data_directory]/profiles/${profile_fn}.tcl"
             if {[file isfile $full_fn]} {
                 msg "setting profile to '$profile_fn'"
                 select_profile $profile_fn
@@ -744,7 +744,7 @@ namespace eval ::plugins::${plugin_name} {
             set profile_name [encoding convertfrom utf-8 $argument]
             set profiles [get_profile_filenames]
             foreach fn $profiles {
-		set full_fn "[homedir]/profiles/${fn}.tcl"
+		set full_fn "[data_directory]/profiles/${fn}.tcl"
 		unset -nocomplain profile
                 catch {
                     array set profile \
